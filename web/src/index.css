@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Saira:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variáveis de tema do mri-ui-kit, espelhadas aqui para robustez no NUI
+   (caso o dist/style.css demore/falhe ao carregar, o tema ainda funciona). */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 160 100% 45%;
+    --primary-foreground: 144 100% 10%;
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 60%;
+    --accent: 240 5% 15%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5% 15%;
+    --input: 240 5% 15%;
+    --ring: 160 100% 45%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 160 100% 45%;
+    --primary-foreground: 144 100% 10%;
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 60%;
+    --accent: 240 5% 15%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5% 15%;
+    --input: 240 5% 15%;
+    --ring: 160 100% 45%;
+  }
+}
+
+/* NUI: fundo transparente para o jogo aparecer atrás da tela. */
+html,
+body,
+#root {
+  background: transparent !important;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Saira', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* Slider de hora — thumb estilo Apple (preenchimento via inline gradient). */
+.easytime-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: hsl(var(--muted));
+  cursor: pointer;
+  outline: none;
+}
+
+.easytime-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s ease;
+}
+
+.easytime-slider:not(:disabled)::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.easytime-slider:not(:disabled):active::-webkit-slider-thumb {
+  transform: scale(1.05);
+}
+
+.easytime-slider:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

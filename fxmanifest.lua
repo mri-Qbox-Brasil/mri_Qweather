@@ -8,14 +8,14 @@ lua54 'yes'
 shared_scripts {
     'configs/locales.lua',
     'configs/config.lua',
-    --'@ox_lib/init.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'ox_lib'.⚠️
-    --'@qbx_core/modules/lib.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'qbx_core'.⚠️
+    '@ox_lib/init.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'ox_lib'.⚠️
+    '@qbx_core/modules/lib.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'qbx_core'.⚠️
 }
 
 client_scripts {
     'configs/client_customise_me.lua',
     'client/*.lua',
-    --'@qbx_core/modules/playerdata.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'qbx_core'.⚠️
+    '@qbx_core/modules/playerdata.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'qbx_core'.⚠️
 }
 
 server_scripts {
@@ -23,18 +23,11 @@ server_scripts {
     'server/*.lua'
 }
 
-ui_page 'html/index.html'
+ui_page 'web/build/index.html'
 files {
-    'html/index.html',
-    'html/css/*.css',
-    'html/js/*.js',
-    'html/font/*.svg',
-    'html/font/*.ttf',
-    'html/font/*.eot',
-    'html/font/*.woff',
-    'html/font/*.woff2',
-    'html/images/**/*.svg',
-    'html/sound/*.ogg'
+    -- NUI em React (mri-ui-kit). Build: `pnpm -C web build`.
+    'web/build/index.html',
+    'web/build/**/*',
 }
 
 exports {

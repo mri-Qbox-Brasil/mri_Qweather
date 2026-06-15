@@ -1,0 +1,5 @@
+node_modules
+# O build entra no recurso; descomente se preferir versionar só o fonte e buildar no deploy.
+# build
+*.log
+.DS_Store

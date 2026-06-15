@@ -82,7 +82,7 @@ Config.APIKey = 'CHANGE_ME' --You need this when using real time or weather. Get
 --╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
 
 
-Config.Command = 'easytime' --The command for staff to open the UI.
+Config.Command = 'clima' --The command for staff to open the UI.
 Config.ConsolePrints = true --Do you want the console to print the weather changes?
 Config.VehicleBlackoutEffect = false --Do you want the lights on vehicles to be turned off during blackouts?
 
