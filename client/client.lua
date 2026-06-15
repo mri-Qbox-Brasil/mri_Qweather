@@ -13,8 +13,33 @@ RegisterNetEvent('cd_easytime:OpenUI', function(values)
     values.game_build = GetGameBuildNumber()
     values.original_timemethod = Config.Time.METHOD
     values.original_weathermethod = Config.Weather.METHOD
+    values.accentColor = GetConvar('mri:color', '#00E699')
+    values.backgroundColor = GetConvar('mri:backgroundColor', '')
     original_time = {hours = values.hours, mins = values.mins}
     SendNUIMessage({action = 'open', values = values})
+end)
+
+-- Cor da suite MRI (convar mri:color/mri:backgroundColor) — propaga mudanças
+-- em runtime pro NUI sem precisar reabrir a tela.
+RegisterNetEvent('cd_easytime:client:accentColorChanged', function(newColor)
+    SendNUIMessage({action = 'updateAccentColor', accentColor = newColor})
+end)
+
+RegisterNetEvent('cd_easytime:client:backgroundColorChanged', function(newColor)
+    SendNUIMessage({action = 'updateBackgroundColor', backgroundColor = newColor})
+end)
+
+-- Estado atual pro modo embedded (aba "Clima" do mri_Qadmin) buscar on-demand,
+-- já que nesse modo não há o push de 'open' pelo comando /clima.
+RegisterNUICallback('getState', function(_, cb)
+    local data = lib.callback.await('cd_easytime:server:getData', false)
+    if not data then cb(false) return end
+    data.game_build = GetGameBuildNumber()
+    data.original_timemethod = Config.Time.METHOD
+    data.original_weathermethod = Config.Weather.METHOD
+    data.accentColor = GetConvar('mri:color', '#00E699')
+    data.backgroundColor = GetConvar('mri:backgroundColor', '')
+    cb(data)
 end)
 
 RegisterNetEvent('cd_easytime:PauseSync', function(boolean, hours)

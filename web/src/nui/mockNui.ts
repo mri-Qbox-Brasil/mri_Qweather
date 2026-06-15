@@ -27,6 +27,8 @@ const SAMPLE: EasytimeValues = {
     country: 'BR',
     city: 'São Paulo',
   },
+  accentColor: '#00E699',
+  backgroundColor: '',
 }
 
 export function startMockNui(): void {

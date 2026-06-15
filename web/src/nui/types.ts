@@ -48,6 +48,10 @@ export interface EasytimeValues {
   original_weathermethod: Method
   original_timemethod: Method
   real_info: RealInfo
+  /** Cor de destaque (convar mri:color). Injetada pelo client.lua. */
+  accentColor?: string
+  /** Cor de fundo (convar mri:backgroundColor). Injetada pelo client.lua. */
+  backgroundColor?: string
 }
 
 /** Mensagem enviada pelo Lua via SendNUIMessage. */

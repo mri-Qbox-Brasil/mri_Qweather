@@ -50,6 +50,8 @@ escrow_ignore {
     'configs/config.lua',
     'server/server.lua',
     'server/version_check.lua',
+    'server/mri_color.lua',
+    'server/mri_qadmin.lua',
 }
 
 provide 'vSync'
