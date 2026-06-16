@@ -5,7 +5,15 @@
 declare const GetParentResourceName: (() => string) | undefined
 
 export function getResourceName(): string {
-  return typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'cd_easytime'
+  // 1) Em modo embedded (iframe dentro do mri_Qadmin) o `GetParentResourceName`
+  //    do CEF não é injetado, então derivamos do hostname `cfx-nui-<resource>`,
+  //    que é confiável tanto standalone quanto embedded.
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host.startsWith('cfx-nui-')) return host.slice('cfx-nui-'.length)
+  }
+  // 2) Fallback: API do CEF (standalone) e, por último, o nome conhecido.
+  return typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'mri_Qweather'
 }
 
 /**
