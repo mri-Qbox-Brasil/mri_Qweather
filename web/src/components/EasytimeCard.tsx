@@ -1,4 +1,5 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { SlidersHorizontal, CalendarClock, type LucideIcon } from 'lucide-react'
 import { MriButton, MriCard, MriCardContent, MriCardFooter, MriSwitch } from '@mriqbox/ui-kit'
 import { useEasytime, type EasytimeController } from '@/state/useEasytime'
 import { useNuiEvent } from '@/nui/useNuiEvent'
@@ -27,15 +28,6 @@ export function EasytimeCard() {
     void a.play().catch(() => undefined)
   })
 
-  useEffect(() => {
-    if (!visible) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [visible, close])
-
   const audio = (
     <audio ref={audioRef} src={`${import.meta.env.BASE_URL}sound/tsunami_siren.ogg`} preload="auto" />
   )
@@ -48,9 +40,9 @@ export function EasytimeCard() {
       <div
         ref={dragRef}
         className={`fixed z-50 font-sans ${
-          pos ? '' : 'bottom-8 left-1/2 -translate-x-1/2 animate-slide-in-bottom'
+          pos ? 'left-0 top-0 will-change-transform' : 'bottom-8 left-1/2 -translate-x-1/2 animate-slide-in-bottom'
         }`}
-        style={pos ? { left: pos.x, top: pos.y } : undefined}
+        style={pos ? { transform: `translate3d(${pos.x}px, ${pos.y}px, 0)` } : undefined}
       >
         <EasytimePanel c={c} onClose={close} onHandlePointerDown={onHandlePointerDown} />
       </div>
@@ -67,19 +59,30 @@ interface PanelProps {
   onHandlePointerDown?: (e: ReactPointerEvent<HTMLElement>) => void
 }
 
+type Tab = 'controls' | 'forecast'
+
 export function EasytimePanel({ c, onClose, embedded = false, onHandlePointerDown }: PanelProps) {
   const { values } = c
-  const fc = useForecast(true)
+  const [tab, setTab] = useState<Tab>('controls')
+  const fc = useForecast(tab === 'forecast')
   const hasForecast = fc.state.events.length > 0
 
   const weathers = WEATHER_OPTIONS.filter((w) => (w.isNew ? c.show.newWeather : true))
   const fill = ((c.sliderValue - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100
 
-  // Layout: tablet (2 colunas) quando há previsão; card compacto quando não há.
-  const wide = hasForecast && !embedded
+  // ESC fecha — standalone chama close(), embedded pede requestClose ao host.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const showForecast = hasForecast && tab === 'forecast'
 
   const controls = (
-    <div className={`flex min-w-0 flex-col gap-5 ${wide ? 'flex-1 overflow-auto pr-1' : ''}`}>
+    <div className="flex flex-col gap-5">
       <div className="-mt-1 text-center text-6xl font-semibold leading-none tracking-tight tabular-nums text-foreground">
         {formatTime(values.hours, values.mins, c.use24hr)}
       </div>
@@ -148,34 +151,13 @@ export function EasytimePanel({ c, onClose, embedded = false, onHandlePointerDow
     </div>
   )
 
-  const forecast = hasForecast ? (
-    <div
-      className={
-        embedded
-          ? 'mt-5 border-t border-border/50 pt-5'
-          : 'min-h-0 min-w-0 flex-1 overflow-hidden border-l border-border/50 pl-5'
-      }
-    >
-      <ForecastSection
-        events={fc.state.events}
-        enabled={fc.state.enabled}
-        loading={fc.loading}
-        disabled={values.realweather}
-        onRefresh={fc.refresh}
-        onSetWeather={fc.setWeather}
-        onSetTime={fc.setTime}
-        onRemove={fc.remove}
-      />
-    </div>
-  ) : null
-
   return (
     <MriCard
       className={
         embedded
           ? 'flex h-full flex-col rounded-none border-0 bg-transparent font-sans shadow-none'
-          : `flex flex-col overflow-hidden rounded-3xl border-0 font-sans shadow-2xl shadow-black/50 ${
-              wide ? 'h-[600px] w-[820px]' : 'max-h-[88vh] w-[400px]'
+          : `flex max-h-[88vh] w-[420px] transform-gpu flex-col overflow-hidden rounded-3xl border-0 font-sans shadow-2xl shadow-black/50 [backface-visibility:hidden] ${
+              hasForecast ? 'h-[640px]' : ''
             }`
       }
     >
@@ -191,17 +173,45 @@ export function EasytimePanel({ c, onClose, embedded = false, onHandlePointerDow
         )}
       </div>
 
-      <MriCardContent
-        className={`p-5 ${
-          embedded
-            ? 'flex-1 overflow-auto'
-            : wide
-              ? 'flex min-h-0 flex-1 gap-5 overflow-hidden'
-              : 'min-h-0 flex-1 overflow-auto'
-        }`}
-      >
-        {controls}
-        {forecast}
+      {hasForecast && (
+        <div className="shrink-0 px-4 pt-3">
+          <SegTabs
+            value={tab}
+            onChange={(id) => setTab(id as Tab)}
+            items={[
+              { id: 'controls', label: 'Clima & Hora', icon: SlidersHorizontal },
+              {
+                id: 'forecast',
+                icon: CalendarClock,
+                label: (
+                  <span className="inline-flex items-center gap-1.5">
+                    Previsão
+                    <span className="rounded-full bg-foreground/10 px-1.5 text-[10px] tabular-nums">
+                      {fc.state.events.length}
+                    </span>
+                  </span>
+                ),
+              },
+            ]}
+          />
+        </div>
+      )}
+
+      <MriCardContent className="min-h-0 flex-1 overflow-y-auto p-5">
+        {showForecast ? (
+          <ForecastSection
+            events={fc.state.events}
+            enabled={fc.state.enabled}
+            loading={fc.loading}
+            disabled={values.realweather}
+            onRefresh={fc.refresh}
+            onSetWeather={fc.setWeather}
+            onSetTime={fc.setTime}
+            onRemove={fc.remove}
+          />
+        ) : (
+          controls
+        )}
       </MriCardContent>
 
       <MriCardFooter className="shrink-0 gap-2 border-t border-border/40 px-5 pb-5 pt-4">
@@ -219,12 +229,51 @@ export function EasytimePanel({ c, onClose, embedded = false, onHandlePointerDow
   )
 }
 
-export function SectionLabel({ children, right }: { children: ReactNode; right?: ReactNode }) {
+interface SegTabsItem {
+  id: string
+  label: ReactNode
+  icon?: LucideIcon
+}
+
+// Segmented control caseiro — sem backdrop-filter (o MriSegmentedTabs usava
+// backdrop-blur, que é caro no CEF e dá artefato de fundo preto).
+function SegTabs({
+  value,
+  onChange,
+  items,
+}: {
+  value: string
+  onChange: (id: string) => void
+  items: SegTabsItem[]
+}) {
   return (
-    <div className="flex items-center justify-between px-0.5">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">{children}</p>
-      {right}
+    <div className="flex gap-1 rounded-xl bg-muted/40 p-1">
+      {items.map((it) => {
+        const active = it.id === value
+        const Icon = it.icon
+        return (
+          <button
+            key={it.id}
+            type="button"
+            onClick={() => onChange(it.id)}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
+              active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {Icon && <Icon className="h-3.5 w-3.5" />}
+            {it.label}
+          </button>
+        )
+      })}
     </div>
+  )
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="px-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
+      {children}
+    </p>
   )
 }
 

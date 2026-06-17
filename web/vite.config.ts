@@ -19,12 +19,14 @@ export default defineConfig({
   build: {
     outDir: 'build',
     emptyOutDir: true,
-    // Nomes estáveis (sem hash) deixam o whitelist de `files{}` no fxmanifest simples.
+    // Hash no nome força o CEF/FiveM a baixar o bundle novo a cada build (sem
+    // ele, o NUI fica preso na versão em cache mesmo após restart). O fxmanifest
+    // serve `web/build/**/*`, então os nomes com hash são incluídos automaticamente.
     rollupOptions: {
       output: {
-        entryFileNames: 'assets/[name].js',
-        chunkFileNames: 'assets/[name].js',
-        assetFileNames: 'assets/[name][extname]',
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
       },
     },
   },

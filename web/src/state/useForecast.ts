@@ -34,10 +34,15 @@ export function useForecast(open: boolean) {
     setLoading(false)
   }, [])
 
+  // Busca inicial uma vez (pra saber se há fila e mostrar a aba).
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  // Poll só enquanto a aba Previsão está ativa (evita re-render à toa).
   useEffect(() => {
     if (!open) return
-    void refresh()
-    const id = window.setInterval(() => void refresh(), 15000)
+    const id = window.setInterval(() => void refresh(), 20000)
     return () => window.clearInterval(id)
   }, [open, refresh])
 

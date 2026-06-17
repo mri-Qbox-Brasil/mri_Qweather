@@ -53,10 +53,14 @@
   }
 }
 
-/* NUI: fundo transparente para o jogo aparecer atrás da tela. */
+/* NUI: fundo transparente para o jogo aparecer atrás da tela.
+   height:100% propaga a altura até o #root — essencial no modo embedded
+   (iframe do mri_Qadmin), senão o `h-full` do painel colapsa e o scroll
+   interno não funciona. */
 html,
 body,
 #root {
+  height: 100%;
   background: transparent !important;
 }
 
@@ -64,6 +68,22 @@ body {
   margin: 0;
   overflow: hidden;
   font-family: 'Saira', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar fino estilo Apple em toda a NUI. */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.45);
 }
 
 /* Slider de hora — thumb estilo Apple (preenchimento via inline gradient). */
