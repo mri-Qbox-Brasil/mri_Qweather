@@ -1,0 +1,6 @@
+# Estado de runtime salvo pelo próprio resource (clima/hora/flags). Muda sozinho
+# em jogo — não deve ser versionado.
+settings.txt
+
+# Arquivos de workspace do editor.
+*.code-workspace
