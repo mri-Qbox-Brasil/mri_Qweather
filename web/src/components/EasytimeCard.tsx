@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import { SlidersHorizontal, CalendarClock, type LucideIcon } from 'lucide-react'
+import { SlidersHorizontal, CalendarClock, Sun, Moon, Minus, Plus, type LucideIcon } from 'lucide-react'
 import { MriButton, MriCard, MriCardContent, MriCardFooter, MriSwitch } from '@mriqbox/ui-kit'
 import { useEasytime, type EasytimeController } from '@/state/useEasytime'
 import { useNuiEvent } from '@/nui/useNuiEvent'
@@ -70,6 +70,21 @@ export function EasytimePanel({ c, onClose, embedded = false, onHandlePointerDow
   const weathers = WEATHER_OPTIONS.filter((w) => (w.isNew ? c.show.newWeather : true))
   const fill = ((c.sliderValue - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100
 
+  // Escala do tempo: converte segundos/min-de-jogo ↔ minutos reais da fase,
+  // usando a janela noturna (config). night fora de [start,end) = dia.
+  const nightStart = values.night_start ?? 22
+  const nightEnd = values.night_end ?? 6
+  const nightGameMin = ((((nightEnd - nightStart) % 24) + 24) % 24) * 60
+  const dayGameMin = 1440 - nightGameMin
+  const dayRealMin = dayGameMin > 0 ? Math.max(1, Math.round(((values.dayscale ?? 5) * dayGameMin) / 60)) : 0
+  const nightRealMin = nightGameMin > 0 ? Math.max(1, Math.round(((values.nightscale ?? 5) * nightGameMin) / 60)) : 0
+  const setDayMin = (m: number) => {
+    if (dayGameMin > 0) c.setDayScale((Math.min(600, Math.max(1, m)) * 60) / dayGameMin)
+  }
+  const setNightMin = (m: number) => {
+    if (nightGameMin > 0) c.setNightScale((Math.min(600, Math.max(1, m)) * 60) / nightGameMin)
+  }
+
   // ESC fecha — standalone chama close(), embedded pede requestClose ao host.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -132,6 +147,22 @@ export function EasytimePanel({ c, onClose, embedded = false, onHandlePointerDow
           )}
           {c.show.realweather && (
             <ToggleRow label="Usar clima real" checked={values.realweather} onChange={c.toggleRealweather} />
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-2.5">
+        <SectionLabel>Velocidade do tempo</SectionLabel>
+        <div className="space-y-0.5 rounded-2xl bg-muted/30 p-1.5">
+          <ScaleRow icon={Sun} label="Dia" minutes={dayRealMin} disabled={values.realtime} onChange={setDayMin} />
+          {nightGameMin > 0 && (
+            <ScaleRow
+              icon={Moon}
+              label="Noite"
+              minutes={nightRealMin}
+              disabled={values.realtime}
+              onChange={setNightMin}
+            />
           )}
         </div>
       </section>
@@ -266,6 +297,87 @@ function SegTabs({
         )
       })}
     </div>
+  )
+}
+
+interface ScaleRowProps {
+  icon: LucideIcon
+  label: string
+  minutes: number
+  disabled?: boolean
+  onChange: (minutes: number) => void
+}
+
+// Linha de escala (Dia/Noite) em minutos reais. Input editável + stepper ±5.
+function ScaleRow({ icon: Icon, label, minutes, disabled, onChange }: ScaleRowProps) {
+  const [draft, setDraft] = useState(String(minutes))
+  useEffect(() => setDraft(String(minutes)), [minutes])
+
+  const commit = () => {
+    const n = Math.min(600, Math.max(1, Math.floor(Number(draft) || 1)))
+    if (n !== minutes) onChange(n)
+    else setDraft(String(minutes))
+  }
+
+  return (
+    <div className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${disabled ? 'opacity-50' : ''}`}>
+      <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+        <Icon className="h-4 w-4" />
+        {label}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <ScaleStep label="Diminuir" disabled={disabled || minutes <= 1} onClick={() => onChange(minutes - 5)}>
+          <Minus className="h-3.5 w-3.5" />
+        </ScaleStep>
+        <div
+          className={`flex items-center gap-1 rounded-md border border-border bg-background/60 px-2 py-0.5 ${
+            disabled ? '' : 'focus-within:border-ring'
+          }`}
+        >
+          <input
+            type="text"
+            inputMode="numeric"
+            value={draft}
+            disabled={disabled}
+            onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+            }}
+            aria-label={`Duração — ${label}`}
+            className="w-8 bg-transparent text-right text-[13px] font-medium tabular-nums text-foreground outline-none disabled:cursor-not-allowed"
+          />
+          <span className="text-[10px] text-muted-foreground/70">min</span>
+        </div>
+        <ScaleStep label="Aumentar" disabled={disabled} onClick={() => onChange(minutes + 5)}>
+          <Plus className="h-3.5 w-3.5" />
+        </ScaleStep>
+      </div>
+    </div>
+  )
+}
+
+function ScaleStep({
+  children,
+  onClick,
+  disabled,
+  label,
+}: {
+  children: ReactNode
+  onClick: () => void
+  disabled?: boolean
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="flex h-7 w-7 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {children}
+    </button>
   )
 }
 

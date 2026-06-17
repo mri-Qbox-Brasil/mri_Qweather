@@ -22,6 +22,10 @@ const DEFAULT_VALUES: EasytimeValues = {
   timemethod: 'game',
   original_weathermethod: 'game',
   original_timemethod: 'game',
+  dayscale: 5,
+  nightscale: 5,
+  night_start: 22,
+  night_end: 6,
   real_info: { weather: '', weather_description: '', country: '', city: '' },
 }
 
@@ -54,6 +58,8 @@ export interface EasytimeController {
   setUse24hr: (v: boolean) => void
   setWeather: (w: WeatherType) => void
   setTimeFromSlider: (value: number) => void
+  setDayScale: (seconds: number) => void
+  setNightScale: (seconds: number) => void
   toggleFreeze: () => void
   toggleBlackout: () => void
   toggleDynamic: () => void
@@ -120,6 +126,9 @@ export function useEasytime(opts: UseEasytimeOptions = {}): EasytimeController {
   }, [])
 
   const setWeather = useCallback((weather: WeatherType) => patch({ weather }), [patch])
+
+  const setDayScale = useCallback((seconds: number) => patch({ dayscale: seconds }), [patch])
+  const setNightScale = useCallback((seconds: number) => patch({ nightscale: seconds }), [patch])
 
   const setTimeFromSlider = useCallback(
     (value: number) => {
@@ -225,6 +234,8 @@ export function useEasytime(opts: UseEasytimeOptions = {}): EasytimeController {
     setUse24hr,
     setWeather,
     setTimeFromSlider,
+    setDayScale,
+    setNightScale,
     toggleFreeze,
     toggleBlackout,
     toggleDynamic,

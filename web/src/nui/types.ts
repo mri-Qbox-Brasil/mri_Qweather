@@ -47,6 +47,12 @@ export interface EasytimeValues {
   timemethod: Method
   original_weathermethod: Method
   original_timemethod: Method
+  /** Escala do tempo: segundos reais por minuto de jogo (dia / noite). */
+  dayscale: number
+  nightscale: number
+  /** Janela noturna (horas) — só pra UI converter escala ↔ minutos reais. */
+  night_start: number
+  night_end: number
   real_info: RealInfo
   /** Cor de destaque (convar mri:color). Injetada pelo client.lua. */
   accentColor?: string

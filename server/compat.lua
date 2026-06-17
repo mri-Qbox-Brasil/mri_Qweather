@@ -112,9 +112,10 @@ CreateThread(function()
 
     while true do
         if self and self.weather then
-            -- timeScale do Renewed = ms por minuto de jogo. No mri é o
-            -- GameTimeInterval (global, mexido por /timescale).
-            local timeScale = GameTimeInterval or ((Config.Time.GameTime.time_cycle_speed or 5) * 1000)
+            -- timeScale do Renewed = ms por minuto de jogo. No mri varia conforme
+            -- dia/noite (GetTimeIntervalMs).
+            local timeScale = (GetTimeIntervalMs and GetTimeIntervalMs())
+                or ((Config.Time.GameTime.time_cycle_speed or 5) * 1000)
 
             if self.weather ~= last.weather then
                 last.weather = self.weather

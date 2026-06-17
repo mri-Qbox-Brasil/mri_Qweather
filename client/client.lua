@@ -15,6 +15,8 @@ RegisterNetEvent('cd_easytime:OpenUI', function(values)
     values.original_weathermethod = Config.Weather.METHOD
     values.accentColor = GetConvar('mri:color', '#00E699')
     values.backgroundColor = GetConvar('mri:backgroundColor', '')
+    values.night_start = Config.Time.GameTime.night_start
+    values.night_end = Config.Time.GameTime.night_end
     original_time = {hours = values.hours, mins = values.mins}
     SendNUIMessage({action = 'open', values = values})
 end)
@@ -39,6 +41,8 @@ RegisterNUICallback('getState', function(_, cb)
     data.original_weathermethod = Config.Weather.METHOD
     data.accentColor = GetConvar('mri:color', '#00E699')
     data.backgroundColor = GetConvar('mri:backgroundColor', '')
+    data.night_start = Config.Time.GameTime.night_start
+    data.night_end = Config.Time.GameTime.night_end
     cb(data)
 end)
 
@@ -368,7 +372,10 @@ AddEventHandler('cd_easytime:ToggleNUIFocus', function()
     while NUI_status do
         Wait(0)
         SetNuiFocus(NUI_status, NUI_status)
-        SetNuiFocusKeepInput(NUI_status)
+        -- KeepInput=false: o teclado vai pro NUI (senão não dá pra digitar nos
+        -- campos de texto do painel). Os DisableControlAction abaixo já travam
+        -- os controles relevantes do jogo.
+        SetNuiFocusKeepInput(false)
         DisableControlAction(0, 1,   true)
         DisableControlAction(0, 2,   true)
         DisableControlAction(0, 106, true)

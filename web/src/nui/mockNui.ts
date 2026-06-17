@@ -21,6 +21,10 @@ const SAMPLE: EasytimeValues = {
   timemethod: 'game',
   original_weathermethod: 'game',
   original_timemethod: 'game',
+  dayscale: 5,
+  nightscale: 5,
+  night_start: 22,
+  night_end: 6,
   real_info: {
     weather: 'Clouds',
     weather_description: 'broken clouds',

@@ -123,15 +123,15 @@ Config.Weather = {
 
         serverDuration = 14, --Quantas horas o servidor roda antes do restart (dimensiona a fila).
         weatherCycletimer = 30, --Minutos de cada evento do staticWeather.
-        timeBetweenRain = 180, --Minutos mínimos entre eventos de chuva.
-        rainAfterRestart = 60, --Minutos após o restart antes da primeira chuva.
+        timeBetweenRain = 480, --Minutos mínimos entre eventos de chuva.
+        rainAfterRestart = 480, --Minutos após o restart antes da primeira chuva.
         decemberSnow = false, --Se true, só neva (XMAS) durante dezembro.
 
         useStaticWeather = true, --Inserir eventos avulsos por chance individual.
         staticWeather = {
-            ['BLIZZARD'] = 0.0, ['CLEAR'] = 0.1, ['CLEARING'] = 0.1, ['CLOUDS'] = 0.1,
-            ['EXTRASUNNY'] = 0.4, ['FOGGY'] = 0.1, ['NEUTRAL'] = 0.0, ['OVERCAST'] = 0.1,
-            ['RAIN'] = 0.1, ['SMOG'] = 0.1, ['SNOW'] = 0.0, ['SNOWLIGHT'] = 0.0,
+            ['BLIZZARD'] = 0.0, ['CLEAR'] = 0.1, ['CLEARING'] = 0.1, ['CLOUDS'] = 0.0,
+            ['EXTRASUNNY'] = 0.4, ['FOGGY'] = 0.0, ['NEUTRAL'] = 0.0, ['OVERCAST'] = 0.0,
+            ['RAIN'] = 0.0, ['SMOG'] = 0.0, ['SNOW'] = 0.0, ['SNOWLIGHT'] = 0.0,
             ['THUNDER'] = 0.1, ['XMAS'] = 0.0,
         },
 
@@ -238,7 +238,10 @@ Config.Time = {
     METHOD = 'game', --Choose between 'game' (GTA time) or 'real' (real-world time).
 
     GameTime = { --If you chose 'game', you have the following configurable options:
-        time_cycle_speed = 5 --How long a full day/night cycle lasts. 1 = 24 mins, 2 = 48 mins, 3 = 72 mins, etc. 2 is the default same as GTA.
+        time_cycle_speed = 5, --Velocidade do DIA: segundos reais por minuto de jogo. 1 = dia de 24min, 2 = 48min (padrão GTA), 5 = 120min.
+        night_cycle_speed = 5, --Velocidade da NOITE: segundos reais por minuto de jogo (durante a janela noturna). Igual ao dia por padrão.
+        night_start = 22, --Hora em que a escala NOTURNA começa.
+        night_end = 6, --Hora em que a escala noturna termina (volta pra escala do dia).
     },
 
     RealTime = { --If you chose 'real', you have the following configurable options:

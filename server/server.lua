@@ -106,6 +106,9 @@ CreateThread(function()
     if self.hours == nil then self.hours = settings.hours or 08 end
     if self.mins == nil then self.mins = settings.mins or 00 end
     if self.dynamic == nil then self.dynamic = settings.dynamic == true and true or false end
+    -- Escalas de tempo (segundos reais por minuto de jogo) — dia e noite separados.
+    self.dayscale = tonumber(settings.dayscale) or Config.Time.GameTime.time_cycle_speed
+    self.nightscale = tonumber(settings.nightscale) or Config.Time.GameTime.night_cycle_speed or Config.Time.GameTime.time_cycle_speed
     if self.freeze == nil then self.freeze = settings.freeze == true and true or false end
     if self.instanttime == nil then self.instanttime = settings.instanttime == true and true or false end
     if self.instantweather == nil then self.instantweather = settings.instantweather == true and true or false end
@@ -194,6 +197,12 @@ RegisterServerEvent('cd_easytime:ForceUpdate', function(data)
         if data.timemethod ~= nil and data.timemethod ~= self.timemethod then
             self.timemethod = data.timemethod
             TimeMethodChange(data.timemethod)
+        end
+        if data.dayscale ~= nil then
+            self.dayscale = math.max(0.05, tonumber(data.dayscale) or self.dayscale)
+        end
+        if data.nightscale ~= nil then
+            self.nightscale = math.max(0.05, tonumber(data.nightscale) or self.nightscale)
         end
         TriggerClientEvent('cd_easytime:ForceUpdate', -1, data, source)
     else
@@ -338,16 +347,31 @@ CreateThread(function()
     end
 end)
 
--- Intervalo (ms) entre cada avanço de 1 minuto de jogo. Global e lido a cada
--- iteração pra permitir mudança em runtime (export/comando SetTimeScale).
-GameTimeInterval = Config.Time.GameTime.time_cycle_speed * 1000
+-- Janela noturna: a escala muda quando a hora atual entra entre night_start e
+-- night_end (lida com a virada da meia-noite, ex: 22 -> 6).
+function IsNightHour(hour)
+    local s = Config.Time.GameTime.night_start or 22
+    local e = Config.Time.GameTime.night_end or 6
+    if s == e then return false end
+    if s < e then
+        return hour >= s and hour < e
+    end
+    return hour >= s or hour < e
+end
+
+-- Intervalo (ms) entre cada avanço de 1 minuto de jogo, conforme dia/noite.
+-- Lido a cada iteração pra refletir mudanças em runtime (painel/comando).
+function GetTimeIntervalMs()
+    local scale = IsNightHour(self.hours) and self.nightscale or self.dayscale
+    return math.max(50, math.floor((tonumber(scale) or 5) * 1000))
+end
 
 CreateThread(function()
     Wait(1000)
     while true do
         if self.timemethod == 'game' and not self.freeze then
             GameTimeChange(1)
-            Wait(GameTimeInterval)
+            Wait(GetTimeIntervalMs())
         else
             Wait(1000)
         end
@@ -568,11 +592,28 @@ function SetDynamic(state)
     return true
 end
 
--- ms por minuto de jogo (equivale ao timeScale do Renewed). Mínimo de 1000ms
--- pra não acelerar o relógio a ponto de quebrar a sincronização.
+-- Escala em segundos reais por minuto de jogo (mín 0.05s). Define dia e noite
+-- de forma independente.
+function SetDayScale(seconds)
+    seconds = tonumber(seconds)
+    if not seconds or seconds < 0.05 then return false end
+    self.dayscale = seconds
+    return true
+end
+
+function SetNightScale(seconds)
+    seconds = tonumber(seconds)
+    if not seconds or seconds < 0.05 then return false end
+    self.nightscale = seconds
+    return true
+end
+
+-- ms por minuto de jogo (equivale ao timeScale do Renewed). Define dia e noite
+-- com o mesmo valor (escala uniforme). Mínimo de 1000ms.
 function SetTimeScale(ms)
     ms = math.floor(tonumber(ms) or 0)
     if ms < 1000 then return false end
-    GameTimeInterval = ms
+    self.dayscale = ms / 1000
+    self.nightscale = ms / 1000
     return true
 end
