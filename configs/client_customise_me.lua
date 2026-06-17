@@ -25,11 +25,6 @@ CreateThread(function()
             TriggerServerEvent('cd_easytime:SyncMe', {time = true, weather = true})
         end)
 
-        RegisterNetEvent('vSync:toggle')
-        AddEventHandler('vSync:toggle', function(boolean)
-            TriggerEvent('cd_easytime:PauseSync', boolean)
-        end)
-    
     elseif Config.Framework == 'qbcore' then
         while QBCore == nil do
             TriggerEvent(Config.FrameworkTriggers.main, function(obj) QBCore = obj end)
@@ -46,27 +41,7 @@ CreateThread(function()
             TriggerServerEvent('cd_easytime:SyncMe', {time = true, weather = true})
         end)
 
-        RegisterNetEvent('qb-weathersync:client:EnableSync')
-        AddEventHandler('qb-weathersync:client:EnableSync', function()
-            TriggerEvent('cd_easytime:PauseSync', true)
-        end)
-
-        RegisterNetEvent('qb-weathersync:client:DisableSync')
-        AddEventHandler('qb-weathersync:client:DisableSync', function()
-            TriggerEvent('cd_easytime:PauseSync', false)
-        end)
-
     elseif Config.Framework == 'qbox' then
-
-        RegisterNetEvent('qb-weathersync:client:EnableSync')
-        AddEventHandler('qb-weathersync:client:EnableSync', function()
-            TriggerEvent('cd_easytime:PauseSync', true)
-        end)
-
-        RegisterNetEvent('qb-weathersync:client:DisableSync')
-        AddEventHandler('qb-weathersync:client:DisableSync', function()
-            TriggerEvent('cd_easytime:PauseSync', false)
-        end)
 
     elseif Config.Framework == 'aceperms' or Config.Framework == 'identifiers' then
         CreateThread(function()

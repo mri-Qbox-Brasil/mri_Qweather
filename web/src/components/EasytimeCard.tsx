@@ -5,6 +5,8 @@ import { useNuiEvent } from '@/nui/useNuiEvent'
 import { formatTime } from '@/lib/time'
 import { WEATHER_OPTIONS, type WeatherOption } from './weather'
 import { EasytimeSky } from './EasytimeSky'
+import { ForecastSection } from './ForecastSection'
+import { useForecast } from '@/state/useForecast'
 import { useDraggable } from '@/lib/useDraggable'
 
 const SLIDER_MIN = 8
@@ -45,7 +47,7 @@ export function EasytimeCard() {
       {audio}
       <div
         ref={dragRef}
-        className={`fixed z-50 w-[400px] font-sans ${
+        className={`fixed z-50 font-sans ${
           pos ? '' : 'bottom-8 left-1/2 -translate-x-1/2 animate-slide-in-bottom'
         }`}
         style={pos ? { left: pos.x, top: pos.y } : undefined}
@@ -67,21 +69,120 @@ interface PanelProps {
 
 export function EasytimePanel({ c, onClose, embedded = false, onHandlePointerDown }: PanelProps) {
   const { values } = c
+  const fc = useForecast(true)
+  const hasForecast = fc.state.events.length > 0
+
   const weathers = WEATHER_OPTIONS.filter((w) => (w.isNew ? c.show.newWeather : true))
   const fill = ((c.sliderValue - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100
+
+  // Layout: tablet (2 colunas) quando há previsão; card compacto quando não há.
+  const wide = hasForecast && !embedded
+
+  const controls = (
+    <div className={`flex min-w-0 flex-col gap-5 ${wide ? 'flex-1 overflow-auto pr-1' : ''}`}>
+      <div className="-mt-1 text-center text-6xl font-semibold leading-none tracking-tight tabular-nums text-foreground">
+        {formatTime(values.hours, values.mins, c.use24hr)}
+      </div>
+
+      <input
+        type="range"
+        min={SLIDER_MIN}
+        max={SLIDER_MAX}
+        step={0.01}
+        value={c.sliderValue}
+        disabled={c.disabled.slider}
+        onChange={(e) => c.setTimeFromSlider(parseFloat(e.target.value))}
+        aria-label="Hora do dia"
+        className="easytime-slider w-full"
+        style={{
+          backgroundImage: `linear-gradient(to right, hsl(var(--primary)) ${fill}%, hsl(var(--muted)) ${fill}%)`,
+        }}
+      />
+
+      <section className="space-y-2.5">
+        <SectionLabel>Clima</SectionLabel>
+        <div className="grid grid-cols-4 gap-1.5">
+          {weathers.map((w) => (
+            <WeatherTile
+              key={w.id}
+              option={w}
+              active={values.weather === w.id}
+              disabled={c.disabled.weather}
+              onClick={() => c.setWeather(w.id)}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-2.5">
+        <SectionLabel>Ajustes</SectionLabel>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-2xl bg-muted/30 p-1.5">
+          <ToggleRow label="24 horas" title="Apenas exibição" checked={c.use24hr} onChange={c.setUse24hr} />
+          <ToggleRow label="Congelar tempo" checked={values.freeze} onChange={c.toggleFreeze} disabled={c.disabled.freeze} />
+          <ToggleRow label="Blackout" checked={values.blackout} onChange={c.toggleBlackout} />
+          <ToggleRow label="Clima dinâmico" checked={values.dynamic} onChange={c.toggleDynamic} disabled={c.disabled.dynamic} />
+          <ToggleRow label="Tempo instantâneo" checked={values.instanttime} onChange={c.toggleInstantTime} disabled={c.disabled.instanttime} />
+          <ToggleRow label="Clima instantâneo" checked={values.instantweather} onChange={c.toggleInstantWeather} disabled={c.disabled.instantweather} />
+          <ToggleRow label="Tsunami" checked={values.tsunami} onChange={c.toggleTsunami} />
+          {c.show.realtime && (
+            <ToggleRow label="Usar tempo real" checked={values.realtime} onChange={c.toggleRealtime} />
+          )}
+          {c.show.realweather && (
+            <ToggleRow label="Usar clima real" checked={values.realweather} onChange={c.toggleRealweather} />
+          )}
+        </div>
+      </section>
+
+      {(c.show.realtime || c.show.realweather) && values.real_info?.city && (
+        <div className="rounded-2xl bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            {values.real_info.city}, {values.real_info.country}
+          </span>
+          {values.real_info.weather && (
+            <div className="mt-0.5">
+              {values.real_info.weather} — {values.real_info.weather_description}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  const forecast = hasForecast ? (
+    <div
+      className={
+        embedded
+          ? 'mt-5 border-t border-border/50 pt-5'
+          : 'min-h-0 min-w-0 flex-1 overflow-hidden border-l border-border/50 pl-5'
+      }
+    >
+      <ForecastSection
+        events={fc.state.events}
+        enabled={fc.state.enabled}
+        loading={fc.loading}
+        disabled={values.realweather}
+        onRefresh={fc.refresh}
+        onSetWeather={fc.setWeather}
+        onSetTime={fc.setTime}
+        onRemove={fc.remove}
+      />
+    </div>
+  ) : null
 
   return (
     <MriCard
       className={
         embedded
           ? 'flex h-full flex-col rounded-none border-0 bg-transparent font-sans shadow-none'
-          : 'overflow-hidden rounded-2xl border-0 font-sans shadow-2xl shadow-black/50'
+          : `flex flex-col overflow-hidden rounded-3xl border-0 font-sans shadow-2xl shadow-black/50 ${
+              wide ? 'h-[600px] w-[820px]' : 'max-h-[88vh] w-[400px]'
+            }`
       }
     >
       {/* Header (céu) — alça de drag só no standalone */}
       <div
         onPointerDown={embedded ? undefined : onHandlePointerDown}
-        className={`relative select-none ${embedded ? '' : 'cursor-grab active:cursor-grabbing'}`}
+        className={`relative shrink-0 select-none ${embedded ? '' : 'cursor-grab active:cursor-grabbing'}`}
         title={embedded ? undefined : 'Arraste para mover'}
       >
         <EasytimeSky hours={values.hours} mins={values.mins} />
@@ -90,75 +191,20 @@ export function EasytimePanel({ c, onClose, embedded = false, onHandlePointerDow
         )}
       </div>
 
-      <MriCardContent className={`space-y-5 p-5 ${embedded ? 'flex-1 overflow-auto' : ''}`}>
-        <div className="-mt-1 text-center text-5xl font-semibold leading-none tracking-tight tabular-nums text-foreground">
-          {formatTime(values.hours, values.mins, c.use24hr)}
-        </div>
-
-        <input
-          type="range"
-          min={SLIDER_MIN}
-          max={SLIDER_MAX}
-          step={0.01}
-          value={c.sliderValue}
-          disabled={c.disabled.slider}
-          onChange={(e) => c.setTimeFromSlider(parseFloat(e.target.value))}
-          aria-label="Hora do dia"
-          className="easytime-slider w-full"
-          style={{
-            backgroundImage: `linear-gradient(to right, hsl(var(--primary)) ${fill}%, hsl(var(--muted)) ${fill}%)`,
-          }}
-        />
-
-        <section className="space-y-2.5">
-          <SectionLabel>Clima</SectionLabel>
-          <div className="grid grid-cols-4 gap-1.5">
-            {weathers.map((w) => (
-              <WeatherTile
-                key={w.id}
-                option={w}
-                active={values.weather === w.id}
-                disabled={c.disabled.weather}
-                onClick={() => c.setWeather(w.id)}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section className="space-y-2.5">
-          <SectionLabel>Ajustes</SectionLabel>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-xl bg-muted/30 p-1.5">
-            <ToggleRow label="24 horas" title="Apenas exibição" checked={c.use24hr} onChange={c.setUse24hr} />
-            <ToggleRow label="Congelar tempo" checked={values.freeze} onChange={c.toggleFreeze} disabled={c.disabled.freeze} />
-            <ToggleRow label="Blackout" checked={values.blackout} onChange={c.toggleBlackout} />
-            <ToggleRow label="Clima dinâmico" checked={values.dynamic} onChange={c.toggleDynamic} disabled={c.disabled.dynamic} />
-            <ToggleRow label="Tempo instantâneo" checked={values.instanttime} onChange={c.toggleInstantTime} disabled={c.disabled.instanttime} />
-            <ToggleRow label="Clima instantâneo" checked={values.instantweather} onChange={c.toggleInstantWeather} disabled={c.disabled.instantweather} />
-            <ToggleRow label="Tsunami" checked={values.tsunami} onChange={c.toggleTsunami} />
-            {c.show.realtime && (
-              <ToggleRow label="Usar tempo real" checked={values.realtime} onChange={c.toggleRealtime} />
-            )}
-            {c.show.realweather && (
-              <ToggleRow label="Usar clima real" checked={values.realweather} onChange={c.toggleRealweather} />
-            )}
-          </div>
-        </section>
-
-        {(c.show.realtime || c.show.realweather) && values.real_info?.city && (
-          <div className="rounded-xl bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">
-              {values.real_info.city}, {values.real_info.country}
-            </span>
-            {values.real_info.weather && (
-              <div className="mt-0.5">
-                {values.real_info.weather} — {values.real_info.weather_description}
-              </div>
-            )}
-          </div>
-        )}
+      <MriCardContent
+        className={`p-5 ${
+          embedded
+            ? 'flex-1 overflow-auto'
+            : wide
+              ? 'flex min-h-0 flex-1 gap-5 overflow-hidden'
+              : 'min-h-0 flex-1 overflow-auto'
+        }`}
+      >
+        {controls}
+        {forecast}
       </MriCardContent>
 
-      <MriCardFooter className="gap-2 px-5 pb-5 pt-0">
+      <MriCardFooter className="shrink-0 gap-2 border-t border-border/40 px-5 pb-5 pt-4">
         <MriButton variant="ghost" size="sm" className="mr-auto" onClick={onClose}>
           Fechar
         </MriButton>
@@ -173,11 +219,12 @@ export function EasytimePanel({ c, onClose, embedded = false, onHandlePointerDow
   )
 }
 
-function SectionLabel({ children }: { children: ReactNode }) {
+export function SectionLabel({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
-    <p className="px-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
-      {children}
-    </p>
+    <div className="flex items-center justify-between px-0.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">{children}</p>
+      {right}
+    </div>
   )
 }
 

@@ -112,6 +112,125 @@ Config.Weather = {
         city = 'London', --The city from which you want to fetch the weather, e.g., London, Miami, Dubai, or Paris.
         weather_check = 30, --How often (in minutes) to check for weather changes.
         weather_types = { ['CLEAR'] = {802,302,312,314,500,520,521}, ['CLOUDS'] = {803}, ['EXTRASUNNY'] = {800,801}, ['OVERCAST'] = {804}, ['CLEARING'] = {300,301,310,311,313,321}, ['RAIN'] = {501,502,503,504,511,522,531}, ['THUNDER'] = {200,201,202,210,211,212,221,230,231,232}, ['SMOG'] = {701,711,721,731,771}, ['FOGGY'] = {741,751,761,762,781}, ['SNOWLIGHT'] = {611,615,616}, ['SNOW'] = {600,620}, ['BLIZZARD'] = {612,613,620,621,622}, ['XMAS'] = {601,602} } --Weather types and their codes (do not change this).
+    },
+
+    --█████╗ Sistema de FILA DE PREVISÃO (portado do Renewed-Weathersync) █████╗--
+    -- Quando ENABLE = true e o método é 'game', uma fila de previsão pré-gerada
+    -- controla o clima dinâmico (substitui o ciclo por WeatherGroups). O toggle
+    -- "dinâmico" do painel liga/desliga a fila. Editável pela seção "Previsão".
+    Forecast = {
+        ENABLE = true, --Usar a fila de previsão em vez do ciclo dinâmico por grupos?
+
+        serverDuration = 14, --Quantas horas o servidor roda antes do restart (dimensiona a fila).
+        weatherCycletimer = 30, --Minutos de cada evento do staticWeather.
+        timeBetweenRain = 180, --Minutos mínimos entre eventos de chuva.
+        rainAfterRestart = 60, --Minutos após o restart antes da primeira chuva.
+        decemberSnow = false, --Se true, só neva (XMAS) durante dezembro.
+
+        useStaticWeather = true, --Inserir eventos avulsos por chance individual.
+        staticWeather = {
+            ['BLIZZARD'] = 0.0, ['CLEAR'] = 0.1, ['CLEARING'] = 0.1, ['CLOUDS'] = 0.1,
+            ['EXTRASUNNY'] = 0.4, ['FOGGY'] = 0.1, ['NEUTRAL'] = 0.0, ['OVERCAST'] = 0.1,
+            ['RAIN'] = 0.1, ['SMOG'] = 0.1, ['SNOW'] = 0.0, ['SNOWLIGHT'] = 0.0,
+            ['THUNDER'] = 0.1, ['XMAS'] = 0.0,
+        },
+
+        useWeatherSequences = true, --Usar sequências de clima (com vento/neve por evento).
+        weatherSequences = {
+            { -- Ensolarado
+                probability = 0.1,
+                events = {
+                    { weather = 'SMOG', time = math.random(3, 10), windSpeed = 0.05 },
+                    { weather = 'CLEAR', time = math.random(5, 10), windSpeed = 0.1 },
+                    { weather = 'EXTRASUNNY', time = math.random(3, 10), windSpeed = 0.05 },
+                },
+            },
+            { -- Nublado
+                probability = 0.10,
+                events = {
+                    { weather = 'OVERCAST', time = math.random(5, 10), windSpeed = 0.1 },
+                    { weather = 'CLOUDS', time = math.random(3, 10), windSpeed = 0.05 },
+                },
+            },
+            { -- Nevando
+                probability = 0.3,
+                month = 12,
+                events = {
+                    { weather = 'OVERCAST', time = math.random(5, 10), windSpeed = 0.0 },
+                    { weather = 'SNOWLIGHT', time = math.random(5, 10), windSpeed = 0.1 },
+                    { weather = 'SNOW', time = math.random(3, 7), windSpeed = 0.3 },
+                    { weather = 'SNOWLIGHT', time = math.random(5, 10), windSpeed = 0.1 },
+                    { weather = 'OVERCAST', time = math.random(3, 7), windSpeed = 0.0 },
+                    { weather = 'CLOUDS', time = math.random(3, 7), windSpeed = 0.0 },
+                },
+            },
+            { -- Tempestade de neve
+                probability = 0.30,
+                windDirection = 120.0,
+                month = 12,
+                events = {
+                    { weather = 'OVERCAST', time = math.random(5, 10), windSpeed = 0.5 },
+                    { weather = 'SNOWLIGHT', time = math.random(3, 7), windSpeed = 1.0 },
+                    { weather = 'SNOW', time = math.random(3, 7), windSpeed = 1.0 },
+                    { weather = 'SNOW', time = math.random(5, 10), windSpeed = 1.0, hasSnow = true },
+                    { weather = 'BLIZZARD', time = 14, windSpeed = 3.0, hasSnow = true },
+                    { weather = 'SNOW', time = 15, windSpeed = 2.0, hasSnow = true },
+                    { weather = 'SNOWLIGHT', time = 20, windSpeed = 1.0, hasSnow = true },
+                    { weather = 'OVERCAST', time = 15, windSpeed = 0.5, hasSnow = true },
+                    { weather = 'CLOUDS', time = 15, windSpeed = 0.5, hasSnow = true },
+                    { weather = 'CLEAR', time = 15, windSpeed = 0.5, hasSnow = true },
+                    { weather = 'EXTRASUNNY', time = 15, windSpeed = 0.5 },
+                },
+            },
+            { -- Aguaceiro
+                probability = 0.1,
+                windDirection = 240.0,
+                events = {
+                    { weather = 'CLOUDS', time = math.random(3, 7), windSpeed = 0.5 },
+                    { weather = 'OVERCAST', time = math.random(3, 7), windSpeed = 1.0 },
+                    { weather = 'RAIN', time = math.random(5, 10), windSpeed = 2.0 },
+                    { weather = 'CLEARING', time = math.random(3, 7), windSpeed = 1.0 },
+                    { weather = 'CLOUDS', time = math.random(5, 10), windSpeed = 0.5 },
+                    { weather = 'EXTRASUNNY', time = math.random(5, 10), windSpeed = 0.0 },
+                },
+            },
+            { -- Temporal
+                probability = 0.10,
+                windDirection = 280.0,
+                events = {
+                    { weather = 'CLOUDS', time = math.random(3, 7), windSpeed = 0.5 },
+                    { weather = 'OVERCAST', time = math.random(3, 7), windSpeed = 1.0 },
+                    { weather = 'RAIN', time = math.random(5, 10), windSpeed = 3.5 },
+                    { weather = 'CLEARING', time = math.random(3, 7), windSpeed = 1.5 },
+                    { weather = 'CLOUDS', time = math.random(3, 7), windSpeed = 0.5 },
+                },
+            },
+            { -- Tempestade leve
+                probability = 0.10,
+                windDirection = 120.0,
+                events = {
+                    { weather = 'CLOUDS', time = math.random(3, 7), windSpeed = 0.5 },
+                    { weather = 'RAIN', time = math.random(3, 7), windSpeed = 1.0 },
+                    { weather = 'THUNDER', time = math.random(3, 7), windSpeed = 3.0 },
+                    { weather = 'RAIN', time = math.random(5, 10), windSpeed = 2.0 },
+                    { weather = 'CLEARING', time = math.random(3, 7), windSpeed = 1.0 },
+                    { weather = 'EXTRASUNNY', time = math.random(5, 10), windSpeed = 0.5 },
+                },
+            },
+            { -- Tempestade forte
+                windDirection = 180.0,
+                probability = 0.10,
+                events = {
+                    { weather = 'OVERCAST', time = math.random(3, 7), windSpeed = 4.0 },
+                    { weather = 'RAIN', time = math.random(3, 7), windSpeed = 8.0 },
+                    { weather = 'THUNDER', time = math.random(3, 7), windSpeed = 12.0 },
+                    { weather = 'RAIN', time = math.random(3, 7), windSpeed = 12.0 },
+                    { weather = 'THUNDER', time = math.random(3, 7), windSpeed = 12.0 },
+                    { weather = 'CLEARING', time = math.random(3, 7), windSpeed = 3.0 },
+                    { weather = 'EXTRASUNNY', time = math.random(3, 7), windSpeed = 0.0 },
+                },
+            },
+        },
     }
 }
 

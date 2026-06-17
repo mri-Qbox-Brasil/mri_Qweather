@@ -42,6 +42,23 @@ RegisterNUICallback('getState', function(_, cb)
     cb(data)
 end)
 
+-- Fila de previsão (seção "Previsão" do painel). Pontes pros callbacks do server.
+RegisterNUICallback('getForecast', function(_, cb)
+    cb(lib.callback.await('cd_easytime:server:getForecast', false) or false)
+end)
+
+RegisterNUICallback('setForecastWeather', function(data, cb)
+    cb(lib.callback.await('cd_easytime:server:setForecastWeather', false, data.index, data.weather) or false)
+end)
+
+RegisterNUICallback('setForecastTime', function(data, cb)
+    cb(lib.callback.await('cd_easytime:server:setForecastTime', false, data.index, data.time) or false)
+end)
+
+RegisterNUICallback('removeForecastEvent', function(data, cb)
+    cb(lib.callback.await('cd_easytime:server:removeForecastEvent', false, data.index) or false)
+end)
+
 RegisterNetEvent('cd_easytime:PauseSync', function(boolean, hours)
     if boolean == PauseSync.state then return end
     if boolean then
@@ -113,11 +130,49 @@ RegisterNetEvent('cd_easytime:ForceUpdate', function(data, source)
 end)
 
 
+-- Vento + partículas de neve da fila de previsão (portado do Renewed). O vento
+-- vem por evento; a neve (hasSnow) liga trails/footsteps/IPL gelado.
+local forecastSnow = false
+
+local function ApplyWind(speed, direction)
+    if speed then SetWind(speed / 2) end
+    if direction then SetWindDirection(math.rad(direction)) end
+end
+
+local function SetForecastSnow(state)
+    if state and not forecastSnow then
+        forecastSnow = true
+        lib.requestNamedPtfxAsset('core_snow', 1000)
+        UseParticleFxAsset('core_snow')
+        ForceSnowPass(true)
+        SetForceVehicleTrails(true)
+        SetForcePedFootstepsTracks(true)
+        RequestScriptAudioBank('ICE_FOOTSTEPS', false)
+        RequestScriptAudioBank('SNOW_FOOTSTEPS', false)
+        if GetResourceState('nve_iced_alamo') ~= 'missing' then
+            RequestIpl('alamo_ice')
+        end
+    elseif not state and forecastSnow then
+        forecastSnow = false
+        SetForceVehicleTrails(false)
+        SetForcePedFootstepsTracks(false)
+        ReleaseNamedScriptAudioBank('ICE_FOOTSTEPS')
+        ReleaseNamedScriptAudioBank('SNOW_FOOTSTEPS')
+        ForceSnowPass(false)
+        RemoveNamedPtfxAsset('core_snow')
+        if IsIplActive('alamo_ice') then
+            RemoveIpl('alamo_ice')
+        end
+    end
+end
+
 RegisterNetEvent('cd_easytime:SyncWeather', function(data)
     if not PauseSync.state then
         CheckSnowSync(data.weather)
         self.weather = data.weather
         ChangeWeather(self.weather, data.instantweather)
+        ApplyWind(data.windSpeed, data.windDirection)
+        SetForecastSnow(data.hasSnow == true)
     end
 end)
 

@@ -270,10 +270,13 @@ CreateThread(function()
     end
 end)
 
+-- Ciclo dinâmico por WeatherGroups (legado). Desativado quando a fila de
+-- previsão está habilitada (server/forecast.lua assume o clima dinâmico).
 CreateThread(function()
     Wait(1000)
+    local forecastEnabled = Config.Weather.Forecast and Config.Weather.Forecast.ENABLE
     while true do
-        if self.weathermethod =='game' and self.dynamic then
+        if not forecastEnabled and self.weathermethod =='game' and self.dynamic then
             GameWeatherChange()
             Wait(Config.Weather.GameWeather.dynamic_weather_time*60*1000)
         else
@@ -335,13 +338,16 @@ CreateThread(function()
     end
 end)
 
+-- Intervalo (ms) entre cada avanço de 1 minuto de jogo. Global e lido a cada
+-- iteração pra permitir mudança em runtime (export/comando SetTimeScale).
+GameTimeInterval = Config.Time.GameTime.time_cycle_speed * 1000
+
 CreateThread(function()
     Wait(1000)
-    local wait_timer = Config.Time.GameTime.time_cycle_speed * 1000
     while true do
         if self.timemethod == 'game' and not self.freeze then
             GameTimeChange(1)
-            Wait(wait_timer)
+            Wait(GameTimeInterval)
         else
             Wait(1000)
         end
@@ -528,6 +534,45 @@ function SetWeather(weather)
         freeze = self.freeze
     }
     TriggerClientEvent('cd_easytime:ForceUpdate', -1, data)
-    
+
+    return true
+end
+
+-- Helpers server-side (sem checagem de permissão — uso confiável por outros
+-- resources via export). Usados pela camada de retrocompat em server/compat.lua.
+function SetBlackout(state)
+    if type(state) ~= 'boolean' then return false end
+    self.blackout = state
+    TriggerClientEvent('cd_easytime:ForceUpdate', -1, { blackout = state })
+    return true
+end
+
+function SetTimeFreeze(state)
+    if type(state) ~= 'boolean' then return false end
+    self.freeze = state
+    -- hours/mins precisam ir junto: o handler de freeze no client trava o relógio
+    -- usando data.hours/data.mins (NetworkOverrideClockTime).
+    TriggerClientEvent('cd_easytime:ForceUpdate', -1, {
+        freeze = state,
+        hours = self.hours,
+        mins = self.mins,
+    })
+    return true
+end
+
+function SetDynamic(state)
+    if type(state) ~= 'boolean' then return false end
+    -- A thread de clima dinâmico (server.lua) lê self.dynamic diretamente.
+    self.dynamic = state
+    TriggerClientEvent('cd_easytime:ForceUpdate', -1, { dynamic = state })
+    return true
+end
+
+-- ms por minuto de jogo (equivale ao timeScale do Renewed). Mínimo de 1000ms
+-- pra não acelerar o relógio a ponto de quebrar a sincronização.
+function SetTimeScale(ms)
+    ms = math.floor(tonumber(ms) or 0)
+    if ms < 1000 then return false end
+    GameTimeInterval = ms
     return true
 end

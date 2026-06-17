@@ -41,19 +41,30 @@ server_exports {
     'GetAllData',
     'GetRealData',
     'SetTime',
-    'SetWeather'
+    'SetWeather',
+    'SetBlackout',
+    'SetTimeFreeze',
+    'SetDynamic',
+    'SetTimeScale'
 }
 
 escrow_ignore {
     'client/client.lua',
+    'client/compat.lua',
     'configs/client_customise_me.lua',
     'configs/config.lua',
     'server/server.lua',
+    'server/compat.lua',
+    'server/forecast.lua',
     'server/version_check.lua',
     'server/mri_color.lua',
     'server/mri_qadmin.lua',
 }
 
-provide 'vSync'
-provide 'qb-weathersync'
-provide 'qbx_weathersync'
+provides {
+    'vSync',
+    'qb-weathersync',
+    'qbx_weathersync',
+    'cd_easytime',
+    'Renewed-Weathersync',
+}
