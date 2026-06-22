@@ -101,7 +101,18 @@ CreateThread(function()
     self.weathermethod = Config.Weather.METHOD
     self.timemethod = Config.Time.METHOD
 
-    local settings = json.decode(LoadResourceFile(resource_name,'./settings.txt'))
+    -- settings.txt e criado no primeiro save (linha ~444). No primeiro boot
+    -- ele nao existe — guard contra nil/corrupted JSON pra nao crashar.
+    local raw = LoadResourceFile(resource_name, 'settings.txt')
+    local settings = {}
+    if raw and raw ~= '' then
+        local ok, decoded = pcall(json.decode, raw)
+        if ok and type(decoded) == 'table' then
+            settings = decoded
+        else
+            print('^3['..resource_name..'] - settings.txt corrompido, usando defaults.^0')
+        end
+    end
     if self.weather == nil then self.weather = settings.weather or 'CLEAR' end
     if self.hours == nil then self.hours = settings.hours or 08 end
     if self.mins == nil then self.mins = settings.mins or 00 end
