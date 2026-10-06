@@ -1,0 +1,79 @@
+fx_version 'cerulean'
+game 'gta5'
+author 'MRI Qbox Team'
+description 'Weather and time sync with zones, forecast and temperature'
+version '2.0.6'
+lua54 'yes'
+
+shared_scripts {
+    'configs/locales.lua',
+    'configs/config.lua',
+    '@ox_lib/init.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'ox_lib'.⚠️
+    '@qbx_core/modules/lib.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'qbx_core'.⚠️
+}
+
+client_scripts {
+    'configs/client_customise_me.lua',
+    'client/*.lua',
+    '@qbx_core/modules/playerdata.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'qbx_core'.⚠️
+}
+
+server_scripts {
+    'configs/server_customise_me.lua',
+    'server/*.lua'
+}
+
+ui_page 'web/build/index.html'
+files {
+    -- NUI em React (mri-ui-kit). Build: `pnpm -C web build`.
+    'web/build/index.html',
+    'web/build/**/*',
+}
+
+exports {
+    'GetWeather',
+    'GetAllData',
+    'GetPauseSyncState',
+    'GetTemperature',
+    'GetTemperatureData',
+    'GetZone',
+}
+
+server_exports {
+    'GetWeather',
+    'GetAllData',
+    'GetRealData',
+    'SetTime',
+    'SetWeather',
+    'SetBlackout',
+    'SetTimeFreeze',
+    'SetDynamic',
+    'SetTimeScale',
+    'GetTemperature',
+    'GetForecastQueue',
+}
+
+escrow_ignore {
+    'client/client.lua',
+    'client/compat.lua',
+    'client/temperature.lua',
+    'client/zones.lua',
+    'configs/client_customise_me.lua',
+    'configs/config.lua',
+    'server/server.lua',
+    'server/compat.lua',
+    'server/forecast.lua',
+    'server/temperature.lua',
+    'server/zones.lua',
+    'server/version_check.lua',
+    'server/mri_color.lua',
+    'server/mri_qadmin.lua',
+}
+
+provides {
+    'vSync',
+    'qb-weathersync',
+    'qbx_weathersync',
+    'cd_easytime',
+    'Renewed-Weathersync',
+}
