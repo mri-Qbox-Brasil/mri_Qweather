@@ -146,6 +146,7 @@ CreateThread(function()
             if effective ~= lastEffective then
                 lastEffective = effective
                 ChangeWeather(effective, false, Z.transitionSpeed)
+                CheckSnowSync(effective)
             end
         end
         Wait(Z.checkInterval)
