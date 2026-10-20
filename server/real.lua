@@ -15,7 +15,7 @@ local function toGta(code)
     if code >= 700 and code < 800 then return 'SMOG' end
     if code == 800 then return 'EXTRASUNNY' end
     if code == 801 then return 'CLEAR' end
-    if code == 802 then return 'CLOUDS' end
+    if code == 802 or code == 803 then return 'CLOUDS' end
     return 'OVERCAST'
 end
 

@@ -11,7 +11,8 @@ QWeather.types = {
 local valid = {}
 for i = 1, #QWeather.types do valid[QWeather.types[i]] = true end
 
-QWeather.rainy = { CLEARING = true, RAIN = true, THUNDER = true, RAIN_HALLOWEEN = true }
+-- Weathers with rain in weather.xml (CLEARING and NEUTRAL are a light drizzle).
+QWeather.rainy = { CLEARING = true, NEUTRAL = true, RAIN = true, THUNDER = true, HALLOWEEN = true, RAIN_HALLOWEEN = true }
 -- Only these have snow on the ground in GTA; SNOW and BLIZZARD only fall, so trails there would look painted on.
 QWeather.snowGround = { XMAS = true, SNOW_HALLOWEEN = true }
 

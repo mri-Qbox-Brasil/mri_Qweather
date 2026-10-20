@@ -79,7 +79,8 @@ local function publishClock(jump)
     GlobalState[keys.clock] = {
         hour = state.hour,
         minute = state.minute,
-        ms = QWeather.msPerMinute(state.hour, QSettings.get().time),
+        -- Real time moves one game minute per real minute; the client fills the seconds from this.
+        ms = state.realTime and 60000 or QWeather.msPerMinute(state.hour, QSettings.get().time),
         frozen = state.freeze,
         jump = jump == true,
         seq = clockSeq,
@@ -133,7 +134,7 @@ function QState.setFlag(flag, value)
     state[flag] = value
     save()
     if flag == 'blackout' then GlobalState[keys.blackout] = value end
-    if flag == 'freeze' then publishClock(false) end
+    if flag == 'freeze' or flag == 'realTime' then publishClock(false) end
     TriggerEvent('mri_Qweather:server:flagChanged', flag, value)
     return true
 end

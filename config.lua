@@ -59,7 +59,8 @@ Config.zones = {
 Config.temperature = {
     base = {
         EXTRASUNNY = 32, CLEAR = 26, CLOUDS = 22, OVERCAST = 18, SMOG = 20, FOGGY = 14, CLEARING = 17,
-        RAIN = 15, THUNDER = 14, SNOWLIGHT = 1, SNOW = -2, BLIZZARD = -8, XMAS = -3, NEUTRAL = 20,
+        RAIN = 15, THUNDER = 14, SNOWLIGHT = 1, SNOW = -2, BLIZZARD = -8, XMAS = -3, NEUTRAL = 17,
+        HALLOWEEN = 12, RAIN_HALLOWEEN = 12, SNOW_HALLOWEEN = -3,
     },
     fallback = 20,
     dayNightAmplitude = 6,

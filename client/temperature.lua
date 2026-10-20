@@ -1,5 +1,6 @@
 local T = Config.temperature
-local rainy = { RAIN = true, THUNDER = true, CLEARING = true, BLIZZARD = true, SNOW = true }
+local wet = { BLIZZARD = true, SNOW = true, SNOW_HALLOWEEN = true }
+for weather in pairs(QWeather.rainy) do wet[weather] = true end
 local cached = 20.0
 
 -- The server's base (weather on screen, hour, month) refined for this player: zone, height, wind, water, interior.
@@ -15,7 +16,7 @@ local function localCelsius()
     local ped = cache.ped
     if GetInteriorFromEntity(ped) ~= 0 then return T.interior end
     celsius -= (GetEntityCoords(ped).z - T.altitude.seaLevelZ) / 1000.0 * T.altitude.lapsePerKm
-    if rainy[weather] then celsius -= GetWindSpeed() * T.windChillFactor end
+    if wet[weather] then celsius -= GetWindSpeed() * T.windChillFactor end
     if IsEntityInWater(ped) then celsius += T.waterMod end
     return celsius
 end

@@ -38,7 +38,7 @@ local CONTROLS = {
         return QState.setFlag(value.name, value.value)
     end,
     tsunami = function(value)
-        if value then return QTsunami.start(QSettings.get().tsunami.minutes) end
+        if value then return QTsunami.active() or QTsunami.start(QSettings.get().tsunami.minutes * 60, false) end
         return QTsunami.stop()
     end,
 }
