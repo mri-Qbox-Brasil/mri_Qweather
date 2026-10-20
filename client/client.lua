@@ -137,6 +137,8 @@ RegisterNetEvent('cd_easytime:ForceUpdate', function(data, source)
             -- self.weather guarda o clima GLOBAL; a zona (se houver) decide o que
             -- é aplicado na tela.
             local effective = ZoneWeatherOverride and ZoneWeatherOverride(data.weather) or data.weather
+            -- Clima escolhido pelo admin encerra a neve do evento de previsão.
+            ForecastHasSnow = false
             CheckSnowSync(effective)
             ChangeWeather(effective, data.instantweather)
             self.weather = data.weather
@@ -202,33 +204,46 @@ end)
 
 -- Vento + partículas de neve da fila de previsão (portado do Renewed). O vento
 -- vem por evento; a neve (hasSnow) liga trails/footsteps/IPL gelado.
-local forecastSnow = false
+local snowFxOn = false
+-- hasSnow do evento de previsão atual. Global pra zones.lua reaplicar a neve
+-- sem perder a do evento ao entrar/sair de zona.
+ForecastHasSnow = false
 
 local function ApplyWind(speed, direction)
     if speed then SetWind(speed / 2) end
     if direction then SetWindDirection(math.rad(direction)) end
 end
 
-local function SetForecastSnow(state)
-    if state and not forecastSnow then
-        forecastSnow = true
+local SnowWeathers = {['XMAS'] = true, ['SNOW_HALLOWEEN'] = true}
+
+function IsSnowWeather(weather)
+    return SnowWeathers[weather] == true
+end
+
+-- Ponto ÚNICO de controle dos nativos de neve. Antes havia dois donos
+-- (SetForecastSnow via hasSnow e CheckSnowSync via clima XMAS) mexendo nos
+-- mesmos nativos com estados separados: um desfazia o outro e os trails
+-- ficavam presos em true. Esses nativos são estado do client (não do
+-- resource), então nem restart limpava — só reconectar.
+local function SetSnowFx(state)
+    state = state == true
+    if state == snowFxOn then return end
+    snowFxOn = state
+    -- ForceSnowPass não é usado: o snow pass renderiza o asfalto de Los Santos
+    -- preto, porque o mapa não tem as texturas de neve.
+    SetForceVehicleTrails(state)
+    SetForcePedFootstepsTracks(state)
+    if state then
         lib.requestNamedPtfxAsset('core_snow', 1000)
         UseParticleFxAsset('core_snow')
-        ForceSnowPass(true)
-        SetForceVehicleTrails(true)
-        SetForcePedFootstepsTracks(true)
         RequestScriptAudioBank('ICE_FOOTSTEPS', false)
         RequestScriptAudioBank('SNOW_FOOTSTEPS', false)
         if GetResourceState('nve_iced_alamo') ~= 'missing' then
             RequestIpl('alamo_ice')
         end
-    elseif not state and forecastSnow then
-        forecastSnow = false
-        SetForceVehicleTrails(false)
-        SetForcePedFootstepsTracks(false)
+    else
         ReleaseNamedScriptAudioBank('ICE_FOOTSTEPS')
         ReleaseNamedScriptAudioBank('SNOW_FOOTSTEPS')
-        ForceSnowPass(false)
         RemoveNamedPtfxAsset('core_snow')
         if IsIplActive('alamo_ice') then
             RemoveIpl('alamo_ice')
@@ -236,14 +251,24 @@ local function SetForecastSnow(state)
     end
 end
 
+-- Zera o estado herdado do client ao (re)iniciar o resource: trails presos de
+-- uma sessão anterior não se limpam sozinhos.
+AddEventHandler('onClientResourceStart', function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    snowFxOn = true -- força o SetSnowFx(false) abaixo a escrever nos nativos
+    SetSnowFx(false)
+end)
+
 RegisterNetEvent('cd_easytime:SyncWeather', function(data)
     if not PauseSync.state then
         local effective = ZoneWeatherOverride and ZoneWeatherOverride(data.weather) or data.weather
-        CheckSnowSync(effective)
         self.weather = data.weather
         ChangeWeather(effective, data.instantweather)
         ApplyWind(data.windSpeed, data.windDirection)
-        SetForecastSnow(data.hasSnow == true)
+        -- Decisão única: antes CheckSnowSync e SetForecastSnow rodavam em
+        -- sequência sobre os mesmos nativos e o segundo desfazia o primeiro.
+        ForecastHasSnow = data.hasSnow == true
+        CheckSnowSync(effective)
     end
 end)
 
@@ -377,14 +402,10 @@ RegisterNetEvent('cd_easytime:TimeMethodChange', function(new_time_method)
     end
 end)
 
+-- Delega pro SetSnowFx e decide pelo clima NOVO (o antigo só importava pra
+-- saber se precisava desligar, o que o estado interno já resolve).
 function CheckSnowSync(NewWeather)
-    if self.weather == 'XMAS' or self.weather == 'SNOW_HALLOWEEN' then
-        SetForceVehicleTrails(false)
-        SetForcePedFootstepsTracks(false)
-    elseif NewWeather == 'XMAS' or NewWeather == 'SNOW_HALLOWEEN' then
-        SetForceVehicleTrails(true)
-        SetForcePedFootstepsTracks(true)
-    end
+    SetSnowFx(IsSnowWeather(NewWeather) or ForecastHasSnow)
 end
 
 local RainWeathers = {['RAIN'] = true, ['THUNDER'] = true, ['CLEARING'] = true, ['NEUTRAL'] = true}
