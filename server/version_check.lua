@@ -1,5 +1,0 @@
--- Version check DESATIVADO.
--- O original consultava o GitHub do Codesign (cd_easytime) e imprimia avisos de
--- "New Update Available" com links de download deles. Como o mri_Qweather é um
--- fork independente com versionamento próprio, esse check gera ruído enganoso no
--- console e foi removido de propósito.

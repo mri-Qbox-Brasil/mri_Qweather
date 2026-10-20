@@ -1,225 +1,144 @@
--- ============================================================
--- Camada de retrocompatibilidade — server
--- ============================================================
--- Antes o servidor rodava o Renewed-Weathersync, que expunha sua API sob os
--- namespaces `qb-weathersync` e `cd_easytime` (além de espelhar GlobalState).
--- Outros resources podem ter sido escritos contra essa API. Aqui replicamos a
--- mesma superfície (mesmos nomes de export, evento e GlobalState) mapeando pras
--- funções internas do mri_Qweather (fork do cd_easytime).
---
--- `self`, SetWeather, SetTime, SetBlackout, SetTimeFreeze e SetDynamic são
--- globais definidos em server/server.lua. Este arquivo carrega antes (ordem
--- alfabética), então só os referenciamos dentro de funções/threads — resolvidos
--- em runtime, quando server.lua já rodou.
--- ============================================================
+-- Interface other resources were written against (qb-weathersync, cd_easytime, Renewed-Weathersync, mri_Qweather exports).
 
--- Registra um export sob um namespace arbitrário (mesma técnica do Renewed),
--- funcionando mesmo sem `provide` do resource original.
-local function exportHandler(namespace, name, fn)
-    AddEventHandler(('__cfx_export_%s_%s'):format(namespace, name), function(setCB)
-        setCB(fn)
-    end)
+function SetWeather(weather)
+    return QState.setWeather(weather, { instant = true })
 end
 
--- ─────────────────────────────────────────────────────────────
--- Exports do qb-weathersync  →  exports['qb-weathersync']:<name>(...)
--- ─────────────────────────────────────────────────────────────
+function SetTime(hour, minute)
+    local ok = QState.setTime(hour, minute or 0, true)
+    if ok then QClock.reset() end
+    return ok
+end
 
-exportHandler('qb-weathersync', 'setWeather', function(weather)
-    return SetWeather(weather)
-end)
+function SetBlackout(state) return QState.setFlag('blackout', state == true) end
+function SetTimeFreeze(state) return QState.setFlag('freeze', state == true) end
+function SetDynamic(state) return QState.setFlag('dynamic', state == true) end
 
-exportHandler('qb-weathersync', 'setTime', function(hour, minute)
-    return SetTime(tonumber(hour), tonumber(minute) or 0)
-end)
+-- Milliseconds per game minute for the whole day (Renewed's timeScale), as the closest choices of the panel.
+function SetTimeScale(ms)
+    ms = tonumber(ms)
+    if not ms or ms < 1000 then return false end
+    local time = QSettings.get().time
+    local nightHours = (time.nightEnd - time.nightStart) % 24
+    local values = json.decode(json.encode(time))
+    values.dayMinutes = math.floor(ms * (24 - nightHours) * 60 / 60000 + 0.5)
+    values.nightMinutes = math.floor(ms * nightHours * 60 / 60000 + 0.5)
+    return QSettings.save('time', values)
+end
 
-exportHandler('qb-weathersync', 'setBlackout', function(state)
-    return SetBlackout(state and true or false)
-end)
+function GetWeather()
+    local state = QState.get()
+    return { weather = state.weather, hours = state.hour, mins = state.minute, blackout = state.blackout, freeze = state.freeze, dynamic = state.dynamic }
+end
 
-exportHandler('qb-weathersync', 'setTimeFreeze', function(state)
-    return SetTimeFreeze(state and true or false)
-end)
+GetAllData = GetWeather
 
-exportHandler('qb-weathersync', 'setDynamicWeather', function(state)
-    return SetDynamic(state and true or false)
-end)
-
-exportHandler('qb-weathersync', 'getWeatherState', function()
-    return self and self.weather
-end)
-
-exportHandler('qb-weathersync', 'getBlackoutState', function()
-    return self and self.blackout or false
-end)
-
-exportHandler('qb-weathersync', 'getTimeFreezeState', function()
-    return self and self.freeze or false
-end)
-
-exportHandler('qb-weathersync', 'getDynamicWeather', function()
-    return self and self.dynamic or false
-end)
-
-exportHandler('qb-weathersync', 'getTime', function()
-    if not self then return 0, 0 end
-    return self.hours, self.mins
-end)
-
--- Não tem equivalente direto; mantido pra não quebrar quem chama (como no Renewed).
-exportHandler('qb-weathersync', 'nextWeatherStage', function()
-    print('[mri_Qweather] export qb-weathersync:nextWeatherStage não é suportado.')
-end)
-
--- ─────────────────────────────────────────────────────────────
--- Export do cd_easytime  →  exports['cd_easytime']:GetWeather()
--- (mesma shape do Renewed: { weather, blackout, freeze })
--- ─────────────────────────────────────────────────────────────
-
-exportHandler('cd_easytime', 'GetWeather', function()
-    if not self then return {} end
+function GetRealData()
+    local reading = QReal.fetch()
+    if not reading then return nil end
+    local state = QState.get()
     return {
-        weather = self.weather,
-        blackout = self.blackout,
-        freeze = self.freeze,
+        hours = state.hour, mins = state.minute, gta_weather = reading.weather,
+        real_weather = reading.description, real_weather_description = reading.description,
+        country = reading.country, city = reading.city,
     }
-end)
+end
 
--- ─────────────────────────────────────────────────────────────
--- Eventos server do qb-weathersync (disparados pelo client, gateados por ACE,
--- igual ao Renewed).
--- ─────────────────────────────────────────────────────────────
+function GetForecastQueue()
+    local events = {}
+    for i, e in ipairs(QForecast.queue()) do events[i] = { weather = e.weather, time = e.time, hasSnow = e.hasSnow } end
+    local state = QState.get()
+    local clock = GlobalState[QWeather.keys.clock]
+    return { enabled = QForecast.running(), events = events, timeScale = clock and clock.ms, time = { hour = state.hour, minute = state.minute } }
+end
+
+-- Exports under another resource name: provide does not forward them, the export event does.
+local function exportAs(resource, name, fn)
+    AddEventHandler(('__cfx_export_%s_%s'):format(resource, name), function(setCB) setCB(fn) end)
+end
+
+exportAs('qb-weathersync', 'setWeather', SetWeather)
+exportAs('qb-weathersync', 'setTime', SetTime)
+exportAs('qb-weathersync', 'setBlackout', function(state) return SetBlackout(state and true or false) end)
+exportAs('qb-weathersync', 'setTimeFreeze', function(state) return SetTimeFreeze(state and true or false) end)
+exportAs('qb-weathersync', 'setDynamicWeather', function(state) return SetDynamic(state and true or false) end)
+exportAs('qb-weathersync', 'getWeatherState', function() return QState.get().weather end)
+exportAs('qb-weathersync', 'getBlackoutState', function() return QState.get().blackout end)
+exportAs('qb-weathersync', 'getTimeFreezeState', function() return QState.get().freeze end)
+exportAs('qb-weathersync', 'getDynamicWeather', function() return QState.get().dynamic end)
+exportAs('qb-weathersync', 'getTime', function() return QState.get().hour, QState.get().minute end)
+exportAs('qb-weathersync', 'nextWeatherStage', function() QForecast.remove(1) end)
+exportAs('cd_easytime', 'GetWeather', GetWeather)
 
 RegisterNetEvent('qb-weathersync:server:setWeather', function(weather)
-    if not IsPlayerAceAllowed(source, 'command.weather') then return end
-    SetWeather(weather)
+    if QWeather.isAdmin(source) then SetWeather(weather) end
 end)
 
 RegisterNetEvent('qb-weathersync:server:setTime', function(hour, minute)
-    if not IsPlayerAceAllowed(source, 'command.time') then return end
-    SetTime(tonumber(hour), tonumber(minute) or 0)
+    if QWeather.isAdmin(source) then SetTime(tonumber(hour), tonumber(minute) or 0) end
 end)
 
--- ─────────────────────────────────────────────────────────────
--- Espelho do GlobalState (statebags) — pra resources que liam o estado direto
--- do Renewed (GlobalState.weather/.currentTime/.timeScale/.freezeTime/.blackOut).
--- Statebags só replicam quando o valor muda; comparamos antes de escrever pra
--- não floodar a rede.
--- ─────────────────────────────────────────────────────────────
-
+-- Renewed-Weathersync state bags (the phone app reads weather and currentTime).
 CreateThread(function()
     local last = {}
-
+    local function set(key, value, compare)
+        if last[key] == compare then return end
+        last[key] = compare
+        GlobalState[key] = value
+    end
     while true do
-        if self and self.weather then
-            -- timeScale do Renewed = ms por minuto de jogo. No mri varia conforme
-            -- dia/noite (GetTimeIntervalMs).
-            local timeScale = (GetTimeIntervalMs and GetTimeIntervalMs())
-                or ((Config.Time.GameTime.time_cycle_speed or 5) * 1000)
-
-            if self.weather ~= last.weather then
-                last.weather = self.weather
-                GlobalState.weather = { weather = self.weather, time = 9999999 }
-            end
-
-            if self.hours ~= last.hours or self.mins ~= last.mins then
-                last.hours, last.mins = self.hours, self.mins
-                GlobalState.currentTime = { hour = self.hours, minute = self.mins }
-            end
-
-            local freeze = self.freeze and true or false
-            if freeze ~= last.freeze then
-                last.freeze = freeze
-                GlobalState.freezeTime = freeze
-            end
-
-            local blackout = self.blackout and true or false
-            if blackout ~= last.blackout then
-                last.blackout = blackout
-                GlobalState.blackOut = blackout
-            end
-
-            if timeScale ~= last.timeScale then
-                last.timeScale = timeScale
-                GlobalState.timeScale = timeScale
-            end
-        end
+        local state = QState.get()
+        local clock = GlobalState[QWeather.keys.clock]
+        set('weather', { weather = state.weather, time = 9999999 }, state.weather)
+        set('currentTime', { hour = state.hour, minute = state.minute }, state.hour * 60 + state.minute)
+        set('freezeTime', state.freeze, state.freeze)
+        set('blackOut', state.blackout, state.blackout)
+        if clock then set('timeScale', clock.ms, clock.ms) end
         Wait(1000)
     end
 end)
 
--- ─────────────────────────────────────────────────────────────
--- Comandos de texto que o Renewed expunha (/time, /noon, ...). Gateados pelo
--- mesmo PermissionsCheck do /clima. PermissionsCheck e Notification são globais
--- definidos em configs/server_customise_me.lua.
--- ─────────────────────────────────────────────────────────────
-
--- Registra um comando admin com a checagem de permissão padrão do mri.
+-- Text commands the old weather scripts had, behind the same permission as the panel.
 local function adminCommand(name, handler)
-    RegisterCommand(name, function(source, args, raw)
-        if source ~= 0 and not PermissionsCheck(source) then
-            Notification(source, 3, L('invalid_permissions'))
-            return
-        end
-        handler(source, args, raw)
+    RegisterCommand(name, function(src, args)
+        if not QWeather.isAdmin(src) then return QWeather.notify(src, 'error', locale('invalid_permissions')) end
+        handler(src, args)
     end, false)
 end
 
-adminCommand('time', function(source, args)
-    local hour = tonumber(args[1])
-    local minute = tonumber(args[2]) or 0
-    if not hour then
-        Notification(source, 3, 'Uso: /time <hora> [minuto]')
-        return
-    end
-    if SetTime(hour, minute) then
-        Notification(source, 1, ('Hora definida para %02d:%02d'):format(hour, minute))
-    else
-        Notification(source, 3, 'Hora inválida (0-23 / 0-59).')
-    end
+adminCommand('time', function(src, args)
+    local hour, minute = tonumber(args[1]), tonumber(args[2]) or 0
+    if not hour then return QWeather.notify(src, 'error', locale('time_usage')) end
+    hour, minute = math.floor(hour) % 24, math.floor(minute)
+    if not SetTime(hour, minute) then return QWeather.notify(src, 'error', locale('time_invalid')) end
+    QWeather.notify(src, 'success', locale('time_set', ('%02d:%02d'):format(hour, minute)))
 end)
 
-local timeShortcuts = {
-    noon    = { 12, 0 },
-    morning = { 9, 0 },
-    evening = { 18, 0 },
-    night   = { 23, 0 },
-}
-for name, t in pairs(timeShortcuts) do
-    adminCommand(name, function(source)
-        SetTime(t[1], t[2])
-        Notification(source, 1, ('Hora definida para %02d:%02d'):format(t[1], t[2]))
+for name, at in pairs({ morning = 9, noon = 12, evening = 18, night = 23 }) do
+    adminCommand(name, function(src)
+        SetTime(at, 0)
+        QWeather.notify(src, 'success', locale('time_set', ('%02d:00'):format(at)))
     end)
 end
 
-adminCommand('weather', function(source, args)
-    local weather = args[1] and string.upper(args[1])
-    if not weather then
-        Notification(source, 3, 'Uso: /weather <tipo> (ex: CLEAR, RAIN, THUNDER, SNOW)')
-        return
-    end
-    if SetWeather(weather) then
-        Notification(source, 1, 'Clima definido para '..weather)
-    else
-        Notification(source, 3, 'Tipo de clima inválido: '..weather)
-    end
+adminCommand('weather', function(src, args)
+    local weather = args[1] and args[1]:upper()
+    -- Renewed opened its menu on a bare /weather, and the F10 menu of mri_Qbox relies on it.
+    if not weather and src ~= 0 then return TriggerClientEvent('mri_Qweather:client:open', src, QPanel.snapshot()) end
+    if not weather then return QWeather.notify(src, 'error', locale('weather_usage')) end
+    if not SetWeather(weather) then return QWeather.notify(src, 'error', locale('weather_invalid', weather)) end
+    QWeather.notify(src, 'success', locale('weather_set', weather))
 end)
 
-adminCommand('timescale', function(source, args)
+adminCommand('timescale', function(src, args)
     local ms = tonumber(args[1])
-    if not ms then
-        Notification(source, 3, 'Uso: /timescale <ms por minuto de jogo> (mín 1000)')
-        return
-    end
-    if SetTimeScale(ms) then
-        Notification(source, 1, 'Timescale definido para '..math.floor(ms)..'ms/min.')
-    else
-        Notification(source, 3, 'Valor inválido (mínimo 1000ms).')
-    end
+    if not ms then return QWeather.notify(src, 'error', locale('timescale_usage')) end
+    if not SetTimeScale(ms) then return QWeather.notify(src, 'error', locale('timescale_invalid')) end
+    QWeather.notify(src, 'success', locale('timescale_set', math.floor(ms)))
 end)
 
-adminCommand('freezetime', function(source, args)
+adminCommand('freezetime', function(src, args)
     local state = args[1] == '1' or args[1] == 'true'
     SetTimeFreeze(state)
-    Notification(source, 1, state and 'Tempo congelado.' or 'Tempo descongelado.')
+    QWeather.notify(src, 'success', locale(state and 'time_frozen' or 'time_unfrozen'))
 end)

@@ -1,33 +1,52 @@
 fx_version 'cerulean'
 game 'gta5'
-author 'MRI Qbox Team'
-description 'Weather and time sync with zones, forecast and temperature'
-version '2.0.6'
 lua54 'yes'
 
+name 'mri_Qweather'
+description 'Clima e hora sincronizados, com previsão, zonas de clima, temperatura e painel próprio'
+author 'MRI Qbox'
+version '3.0.0'
+license 'MIT with Commons Clause'
+repository 'https://github.com/mri-Qbox-Brasil/mri_Qweather'
+
+ox_lib 'locale'
+
 shared_scripts {
-    'configs/locales.lua',
-    'configs/config.lua',
-    '@ox_lib/init.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'ox_lib'.⚠️
-    '@qbx_core/modules/lib.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'qbx_core'.⚠️
+    '@ox_lib/init.lua',
+    'config.lua',
+    'shared/weather.lua',
 }
 
 client_scripts {
-    'configs/client_customise_me.lua',
-    'client/*.lua',
-    '@qbx_core/modules/playerdata.lua', --⚠️PLEASE READ⚠️; Uncomment this line if you use 'qbx_core'.⚠️
+    'client/state.lua',
+    'client/clock.lua',
+    'client/weather.lua',
+    'client/zones.lua',
+    'client/temperature.lua',
+    'client/tsunami.lua',
+    'client/panel.lua',
+    'client/compat.lua',
 }
 
 server_scripts {
-    'configs/server_customise_me.lua',
-    'server/*.lua'
+    'server/settings.lua',
+    'server/state.lua',
+    'server/clock.lua',
+    'server/real.lua',
+    'server/forecast.lua',
+    'server/tsunami.lua',
+    'server/zones.lua',
+    'server/temperature.lua',
+    'server/panel.lua',
+    'server/compat.lua',
 }
 
 ui_page 'web/build/index.html'
+
 files {
-    -- NUI em React (mri-ui-kit). Build: `pnpm -C web build`.
     'web/build/index.html',
     'web/build/**/*',
+    'locales/*.json',
 }
 
 exports {
@@ -53,23 +72,7 @@ server_exports {
     'GetForecastQueue',
 }
 
-escrow_ignore {
-    'client/client.lua',
-    'client/compat.lua',
-    'client/temperature.lua',
-    'client/zones.lua',
-    'configs/client_customise_me.lua',
-    'configs/config.lua',
-    'server/server.lua',
-    'server/compat.lua',
-    'server/forecast.lua',
-    'server/temperature.lua',
-    'server/zones.lua',
-    'server/version_check.lua',
-    'server/mri_color.lua',
-    'server/mri_qadmin.lua',
-}
-
+-- Answers for the weather scripts it replaces: server/compat.lua and client/compat.lua carry their exports and events.
 provides {
     'vSync',
     'qb-weathersync',
@@ -77,3 +80,5 @@ provides {
     'cd_easytime',
     'Renewed-Weathersync',
 }
+
+dependency 'ox_lib'

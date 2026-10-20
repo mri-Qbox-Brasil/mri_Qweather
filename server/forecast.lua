@@ -1,208 +1,120 @@
--- ============================================================
--- Fila de previsão de clima (portado do Renewed-Weathersync)
--- ============================================================
--- Gera no boot uma fila de eventos de clima (weatherList) cobrindo as horas de
--- uptime do servidor, a partir de Config.Weather.Forecast (sequências por
--- probabilidade + climas avulsos), respeitando as regras de espaçamento de
--- chuva / pós-restart / mês. Uma thread anda a fila minuto a minuto e aplica o
--- clima atual. Substitui o ciclo dinâmico por WeatherGroups quando ENABLE=true.
---
--- `self`, PermissionsCheck e Config são globais (server.lua / customise / config).
--- ============================================================
+QForecast = {}
 
-local resource_name = GetCurrentResourceName()
-local FC = Config.Weather.Forecast
+-- Where each weather can go next, so the sky changes the way it would outside (no sun straight into a storm).
+local NEXT = {
+    EXTRASUNNY = { 'EXTRASUNNY', 'CLEAR', 'CLOUDS', 'SMOG' },
+    CLEAR = { 'EXTRASUNNY', 'CLEAR', 'CLOUDS', 'SMOG', 'FOGGY' },
+    CLOUDS = { 'CLEAR', 'CLOUDS', 'OVERCAST', 'FOGGY', 'SNOWLIGHT' },
+    OVERCAST = { 'CLOUDS', 'OVERCAST', 'CLEARING', 'RAIN', 'SNOWLIGHT' },
+    SMOG = { 'EXTRASUNNY', 'CLEAR', 'CLOUDS' },
+    FOGGY = { 'CLEAR', 'CLOUDS', 'OVERCAST' },
+    CLEARING = { 'CLEAR', 'CLOUDS', 'OVERCAST' },
+    RAIN = { 'RAIN', 'THUNDER', 'CLEARING' },
+    THUNDER = { 'RAIN', 'CLEARING' },
+    SNOWLIGHT = { 'CLOUDS', 'OVERCAST', 'SNOW', 'SNOWLIGHT' },
+    SNOW = { 'SNOWLIGHT', 'SNOW', 'BLIZZARD' },
+    BLIZZARD = { 'SNOW' },
+    XMAS = { 'XMAS', 'SNOW', 'SNOWLIGHT' },
+}
 
-if not FC or not FC.ENABLE then
-    -- Export existe mesmo com o forecast desligado (evita erro em quem consome,
-    -- ex.: o app de clima do telefone).
-    function GetForecastQueue()
-        return { enabled = false, events = {}, timeScale = nil, time = nil }
-    end
-    return
+-- Steady wind per weather (m/s), shuffled a little on each event.
+local WIND = {
+    EXTRASUNNY = 0.5, CLEAR = 1.0, CLOUDS = 2.0, OVERCAST = 3.0, SMOG = 0.5, FOGGY = 0.5, CLEARING = 3.0,
+    RAIN = 5.0, THUNDER = 9.0, SNOWLIGHT = 2.0, SNOW = 4.0, BLIZZARD = 10.0, XMAS = 2.0,
+}
+
+local LENGTHS = { short = { 8, 15 }, normal = { 15, 30 }, long = { 30, 60 } }
+local QUEUE_SIZE = 12
+local SNOW_FAMILY = { SNOWLIGHT = true, SNOW = true, BLIZZARD = true, XMAS = true }
+
+local queue = {}
+local startedAt = os.time()
+local lastRainAt = nil
+
+local function rainAllowed(minutesAhead)
+    local cfg = QSettings.get().weather
+    local at = os.time() + minutesAhead * 60
+    if at - startedAt < cfg.rainAfterRestart * 60 then return false end
+    return not lastRainAt or at - lastRainAt >= cfg.rainGap * 60
 end
 
-local rainFilter = { RAIN = true, THUNDER = true }
-
--- Resolve a duração de um evento. Aceita número fixo (ex: 14) ou range
--- {min, max} (ex: {3, 10}) — o range é sorteado a cada build da fila, então as
--- durações variam entre restarts em vez de ficarem congeladas no parse do config.
-local function resolveTime(t)
-    if type(t) == 'table' then
-        local lo = tonumber(t[1]) or 1
-        local hi = tonumber(t[2]) or lo
-        if hi < lo then lo, hi = hi, lo end
-        return math.random(lo, hi)
-    end
-    return tonumber(t) or 1
+local function decemberSnow()
+    return QSettings.get().weather.decemberSnow and tonumber(os.date('%m')) == 12
 end
 
--- Lista atual (upvalue compartilhado por runner e callbacks).
-local forecast = {}
-local active = false
-
--- ─────────────────────────────────────────────────────────────
--- Validação de clima (mesma vocabulário do SetWeather).
--- ─────────────────────────────────────────────────────────────
-local function isValidWeather(weather)
-    if type(weather) ~= 'string' then return false end
-    for _, group in pairs(Config.Weather.GameWeather.WeatherGroups) do
-        for _, w in ipairs(group) do
-            if w == weather then return true end
-        end
-    end
-    for w in pairs(Config.Weather.RealWeather.weather_types) do
-        if w == weather then return true end
-    end
-    return false
+local function weightOf(weather, minutesAhead)
+    local cfg = QSettings.get().weather
+    if decemberSnow() then return SNOW_FAMILY[weather] and 3 or 0 end
+    if QWeather.rainy[weather] and weather ~= 'CLEARING' and not rainAllowed(minutesAhead) then return 0 end
+    return cfg.frequency[weather] or 0
 end
 
--- ─────────────────────────────────────────────────────────────
--- Builder da fila (porta o weatherbuilder do Renewed). Roda dentro de uma
--- thread (usa Wait(0) pra não travar). Retorna um array de eventos.
--- ─────────────────────────────────────────────────────────────
-local function buildForecast()
-    math.randomseed(GetGameTimer())
-    local currentMonth = tonumber(os.date('%m'))
-    local cycleTimer = FC.weatherCycletimer
-    local weatherList = {}
-
-    if FC.decemberSnow and currentMonth == 12 then
-        return { { weather = 'XMAS', time = 86400, windSpeed = 0.0, windDirection = 0.0, hasSnow = true } }
+local function choose(from, minutesAhead)
+    local options = NEXT[from] or NEXT.CLEAR
+    local total = 0
+    for i = 1, #options do total += weightOf(options[i], minutesAhead) end
+    -- Nothing allowed from here (everything set to "never"): walk back to fair weather.
+    if total == 0 then
+        if decemberSnow() then return 'SNOW' end
+        return from == 'CLEAR' and 'EXTRASUNNY' or 'CLEAR'
     end
-
-    local function containsRain(events)
-        for i = 1, #events do
-            if rainFilter[events[i].weather] then return true end
-        end
-        return false
+    local roll = math.random() * total
+    for i = 1, #options do
+        roll -= weightOf(options[i], minutesAhead)
+        if roll <= 0 then return options[i] end
     end
-
-    local minutesLeft = FC.serverDuration * 60
-    local minutesSinceRain = FC.timeBetweenRain + 1
-    local timeBeforeRain = FC.rainAfterRestart
-
-    local guard = 0
-    while true do
-        guard = guard + 1
-
-        if FC.useWeatherSequences then
-            for i = 1, #FC.weatherSequences do
-                local seq = FC.weatherSequences[i]
-                local hasRain = containsRain(seq.events)
-                local allowed = seq.probability >= math.random()
-                    and (not seq.month or seq.month == currentMonth)
-                    and (not hasRain or (timeBeforeRain <= 0 and minutesSinceRain >= FC.timeBetweenRain))
-
-                if allowed then
-                    local timeUsed = 0
-                    for j = 1, #seq.events do
-                        local ev = seq.events[j]
-                        local evTime = resolveTime(ev.time)
-                        weatherList[#weatherList + 1] = {
-                            weather = ev.weather,
-                            time = evTime,
-                            windSpeed = ev.windSpeed,
-                            -- windDirection da sequência aplicado por evento
-                            -- (no Renewed isso era ignorado por bug).
-                            windDirection = ev.windDirection or seq.windDirection,
-                            hasSnow = ev.hasSnow,
-                        }
-                        timeUsed = timeUsed + evTime
-                    end
-                    minutesSinceRain = hasRain and 0 or (minutesSinceRain + timeUsed)
-                    timeBeforeRain = (not hasRain) and (timeBeforeRain - timeUsed) or timeBeforeRain
-                    minutesLeft = minutesLeft - timeUsed
-                end
-            end
-        end
-
-        if FC.useStaticWeather then
-            local count = #weatherList
-            for weather, chance in pairs(FC.staticWeather) do
-                local hasRain = rainFilter[weather]
-                local allowed = chance >= math.random()
-                    and (not hasRain or (timeBeforeRain <= 0 and minutesSinceRain >= FC.timeBetweenRain))
-
-                -- evita repetir o mesmo clima mais de 1x nos últimos 5 eventos
-                if allowed and count > 5 then
-                    local rep = 0
-                    for k = count - 5, count do
-                        if weatherList[k] and weatherList[k].weather == weather then
-                            rep = rep + 1
-                            if rep > 1 then allowed = false break end
-                        end
-                    end
-                end
-
-                if allowed then
-                    count = count + 1
-                    weatherList[count] = { weather = weather, time = cycleTimer }
-                    minutesSinceRain = hasRain and 0 or (minutesSinceRain + cycleTimer)
-                    timeBeforeRain = (not hasRain) and (timeBeforeRain - cycleTimer) or timeBeforeRain
-                    minutesLeft = minutesLeft - cycleTimer
-                end
-            end
-        end
-
-        if minutesLeft <= 0 or guard > 2000 then break end
-        Wait(0)
-    end
-
-    -- nunca retorna vazio
-    if not weatherList[1] then
-        weatherList[1] = { weather = (self and self.weather) or 'CLEAR', time = cycleTimer }
-    end
-
-    return weatherList
+    return options[#options]
 end
 
--- ─────────────────────────────────────────────────────────────
--- Aplica o clima de um evento da fila (transição suave + vento + neve).
--- ─────────────────────────────────────────────────────────────
-local function applyEvent(event)
-    if not event then return end
-    self.weather = event.weather
-    TriggerClientEvent('cd_easytime:SyncWeather', -1, {
-        weather = event.weather,
-        instantweather = false,
-        windSpeed = event.windSpeed,
-        windDirection = event.windDirection,
-        hasSnow = event.hasSnow,
-    })
-    if Config.ConsolePrints then
-        print(('^3[%s] - Previsão: clima -> %s (%s min)^0'):format(resource_name, event.weather, event.time))
+local function makeEvent(weather)
+    local range = LENGTHS[QSettings.get().weather.eventMinutes] or LENGTHS.normal
+    return {
+        weather = weather,
+        time = math.random(range[1], range[2]),
+        windSpeed = (WIND[weather] or 1.0) * (0.75 + math.random() * 0.5),
+        windDirection = math.random(0, 359),
+        hasSnow = QWeather.snowGround[weather] == true,
+    }
+end
+
+local function minutesUntil(index)
+    local total = 0
+    for i = 1, index - 1 do total += queue[i].time end
+    return total
+end
+
+local function fill()
+    while #queue < QUEUE_SIZE do
+        local from = queue[#queue] and queue[#queue].weather or QState.get().weather
+        queue[#queue + 1] = makeEvent(choose(from, minutesUntil(#queue + 1)))
     end
 end
 
--- ─────────────────────────────────────────────────────────────
--- Runner: anda a fila enquanto o forecast está ativo (método game + dinâmico).
--- ─────────────────────────────────────────────────────────────
+local function apply(event)
+    if QWeather.rainy[event.weather] then lastRainAt = os.time() end
+    QState.setWeather(event.weather, { wind = event.windSpeed, windDirection = event.windDirection, snow = event.hasSnow })
+end
+
+local function running()
+    local state = QState.get()
+    return state.dynamic and not state.realWeather
+end
+
 CreateThread(function()
-    while not (self and self.weather) do Wait(500) end
-    forecast = buildForecast()
-    print(('^2[%s] - Previsão gerada com %d eventos.^0'):format(resource_name, #forecast))
-
+    math.randomseed(os.time())
+    fill()
+    local active = false
     while true do
-        local shouldRun = self.weathermethod == 'game' and self.dynamic
-
-        if shouldRun then
+        if running() then
             if not active then
-                -- acabou de ativar (dinâmico ligado): aplica o evento atual.
                 active = true
-                applyEvent(forecast[1])
+                apply(queue[1])
             else
-                local cur = forecast[1]
-                if cur then
-                    cur.time = cur.time - 1
-                    if cur.time <= 0 then
-                        table.remove(forecast, 1)
-                        if not forecast[1] then forecast = buildForecast() end
-                        applyEvent(forecast[1])
-                    end
-                else
-                    forecast = buildForecast()
-                    applyEvent(forecast[1])
+                queue[1].time -= 1
+                if queue[1].time <= 0 then
+                    table.remove(queue, 1)
+                    fill()
+                    apply(queue[1])
                 end
             end
             Wait(60000)
@@ -213,84 +125,52 @@ CreateThread(function()
     end
 end)
 
--- ─────────────────────────────────────────────────────────────
--- Callbacks de gerenciamento (usados pela seção "Previsão" do painel).
--- Gateados pelo mesmo PermissionsCheck do /clima.
--- ─────────────────────────────────────────────────────────────
+-- A setting change (frequency, length) is felt from the next events on, the current one stays.
+AddEventHandler('mri_Qweather:server:settingsChanged', function(section)
+    if section ~= 'weather' then return end
+    for i = #queue, 2, -1 do queue[i] = nil end
+    fill()
+end)
 
--- ─────────────────────────────────────────────────────────────
--- Export ungated (somente leitura) pro app de clima do telefone.
--- Não expõe nada sensível: só a sequência de climas futuros, a escala do dia
--- (ms por minuto de jogo) e a hora atual do jogo. Diferente do callback abaixo,
--- que é gated por admin, este é livre porque é só previsão pública.
--- ─────────────────────────────────────────────────────────────
-function GetForecastQueue()
+local function copy()
     local out = {}
-    for i = 1, #forecast do
-        local e = forecast[i]
-        out[i] = { weather = e.weather, time = e.time, hasSnow = e.hasSnow }
+    for i = 1, #queue do
+        local e = queue[i]
+        out[i] = { weather = e.weather, time = e.time, windSpeed = e.windSpeed, windDirection = e.windDirection, hasSnow = e.hasSnow }
     end
-    local timeScale = (GetTimeIntervalMs and GetTimeIntervalMs())
-        or ((Config.Time.GameTime.time_cycle_speed or 5) * 1000)
-    return {
-        enabled = (self.weathermethod == 'game' and self.dynamic) or false,
-        events = out,
-        timeScale = timeScale,
-        time = { hour = self.hours or 0, minute = self.mins or 0 },
-    }
+    return out
 end
 
-lib.callback.register('cd_easytime:server:getForecast', function(source)
-    if not PermissionsCheck(source) then return false end
-    -- cópia rasa pra NUI (não expõe a referência mutável)
-    local out = {}
-    for i = 1, #forecast do
-        local e = forecast[i]
-        out[i] = {
-            weather = e.weather,
-            time = e.time,
-            windSpeed = e.windSpeed,
-            windDirection = e.windDirection,
-            hasSnow = e.hasSnow,
-        }
-    end
-    return { enabled = (self.weathermethod == 'game' and self.dynamic) or false, events = out }
-end)
+function QForecast.queue()
+    return copy()
+end
 
-lib.callback.register('cd_easytime:server:setForecastWeather', function(source, index, weather)
-    if not PermissionsCheck(source) then return false end
+function QForecast.running()
+    return running()
+end
+
+function QForecast.setWeather(index, weather)
     index = tonumber(index)
-    if not index or not forecast[index] or not isValidWeather(weather) then return false end
-
-    forecast[index].weather = weather
-    -- se é o evento atual e o forecast está ativo, aplica na hora.
-    if index == 1 and self.weathermethod == 'game' and self.dynamic then
-        applyEvent(forecast[1])
-    end
-    return weather
-end)
-
-lib.callback.register('cd_easytime:server:setForecastTime', function(source, index, time)
-    if not PermissionsCheck(source) then return false end
-    index = tonumber(index)
-    time = math.floor(tonumber(time) or 0)
-    if not forecast[index] or time < 1 then return false end
-    if time > 1440 then time = 1440 end
-
-    forecast[index].time = time
-    return time
-end)
-
-lib.callback.register('cd_easytime:server:removeForecastEvent', function(source, index)
-    if not PermissionsCheck(source) then return false end
-    index = tonumber(index)
-    if not index or not forecast[index] then return false end
-
-    table.remove(forecast, index)
-    if not forecast[1] then forecast = buildForecast() end
-    -- removeu o evento atual → aplica o novo da frente (se ativo).
-    if index == 1 and self.weathermethod == 'game' and self.dynamic then
-        applyEvent(forecast[1])
-    end
+    if not index or not queue[index] or not QWeather.isValid(weather) then return false end
+    local event = makeEvent(weather)
+    event.time = queue[index].time
+    queue[index] = event
+    if index == 1 and running() then apply(event) end
     return true
-end)
+end
+
+function QForecast.setTime(index, minutes)
+    index, minutes = tonumber(index), math.floor(tonumber(minutes) or 0)
+    if not index or not queue[index] or minutes < 1 then return false end
+    queue[index].time = math.min(minutes, 1440)
+    return true
+end
+
+function QForecast.remove(index)
+    index = tonumber(index)
+    if not index or not queue[index] then return false end
+    table.remove(queue, index)
+    fill()
+    if index == 1 and running() then apply(queue[1]) end
+    return true
+end

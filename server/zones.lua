@@ -1,39 +1,10 @@
--- ============================================================
--- Zonas de clima — server (persistência + sync + edição in-game)
--- ============================================================
--- Zonas CUSTOM (raio/polígono) E NATIVAS (por código do GTA) são estado de
--- runtime: carregadas de data/zones.json (seed = Config.Zones), publicadas em
--- GlobalState.mri_zones / GlobalState.mri_zone_natives, e TODAS editáveis pelo
--- painel (aba "Zonas") via callbacks gateados por PermissionsCheck. O config vira
--- só o seed inicial.
---
--- Formato do JSON: { custom = [ ... ], natives = { CODE = {rule, tempMod} } }.
--- (Migra o formato antigo, que era só o array de custom.)
---
--- Config e PermissionsCheck são globais (config.lua / server_customise_me.lua).
--- ============================================================
-
-local resource = GetCurrentResourceName()
-local Z = Config.Zones
-
-if not Z or not Z.ENABLE then return end
+local resource = QWeather.resource
+local Z = Config.zones
 
 local zones = {}   -- array de zonas custom
 local natives = {} -- map código-do-GTA -> { rule, tempMod }
 
--- ─────────────────────────────────────────────────────────────
--- Vocabulário de clima válido (mesmo do forecast/SetWeather).
--- ─────────────────────────────────────────────────────────────
-local function isValidWeather(w)
-    if type(w) ~= 'string' then return false end
-    for _, g in pairs(Config.Weather.GameWeather.WeatherGroups) do
-        for _, x in ipairs(g) do if x == w then return true end end
-    end
-    for x in pairs(Config.Weather.RealWeather.weather_types) do
-        if x == w then return true end
-    end
-    return false
-end
+local isValidWeather = QWeather.isValid
 
 local function validateRule(rule)
     if type(rule) ~= 'table' then return nil end
@@ -58,12 +29,19 @@ end
 -- Persistência + sync.
 -- ─────────────────────────────────────────────────────────────
 local function sync()
-    GlobalState.mri_zones = zones
-    GlobalState.mri_zone_natives = natives
+    GlobalState[QWeather.keys.zones] = zones
+    GlobalState[QWeather.keys.natives] = natives
 end
 
 local function save()
     SaveResourceFile(resource, 'data/zones.json', json.encode({ custom = zones, natives = natives }), -1)
+end
+
+-- vec2 does not survive json.encode, so polygons are saved as plain tables.
+local function pointsToTables(points)
+    local out = {}
+    for i = 1, #points do out[i] = { x = points[i].x + 0.0, y = points[i].y + 0.0 } end
+    return out
 end
 
 local function seedCustom()
@@ -73,7 +51,7 @@ local function seedCustom()
         out[i] = {
             id = z.id, name = z.name, shape = z.shape, radius = z.radius,
             coords = z.coords and { x = z.coords.x + 0.0, y = z.coords.y + 0.0, z = z.coords.z + 0.0 } or nil,
-            points = z.points, priority = z.priority or 0, rule = z.rule, tempMod = z.tempMod or 0,
+            points = z.points and pointsToTables(z.points) or nil, priority = z.priority or 0, rule = z.rule, tempMod = z.tempMod or 0,
         }
     end
     return out
@@ -157,16 +135,16 @@ local function sanitizeZone(data, existingId)
 end
 
 -- ─────────────────────────────────────────────────────────────
--- Callbacks do painel. Gateados pelo mesmo PermissionsCheck.
+-- Callbacks do painel, só admin.
 -- ─────────────────────────────────────────────────────────────
-lib.callback.register('cd_easytime:server:getZones', function(source)
-    if not PermissionsCheck(source) then return false end
+lib.callback.register('mri_Qweather:server:getZones', function(source)
+    if not QWeather.isAdmin(source) then return false end
     return { custom = zones, natives = natives }
 end)
 
 -- Custom ─────────────────────────────────────────────────────
-lib.callback.register('cd_easytime:server:addZone', function(source, data)
-    if not PermissionsCheck(source) then return false end
+lib.callback.register('mri_Qweather:server:addZone', function(source, data)
+    if not QWeather.isAdmin(source) then return false end
     local zone, err = sanitizeZone(data)
     if not zone then return false, err end
     zones[#zones + 1] = zone
@@ -174,10 +152,22 @@ lib.callback.register('cd_easytime:server:addZone', function(source, data)
     return zone.id
 end)
 
-lib.callback.register('cd_easytime:server:updateZone', function(source, id, data)
-    if not PermissionsCheck(source) then return false end
+lib.callback.register('mri_Qweather:server:updateZone', function(source, id, data)
+    if not QWeather.isAdmin(source) then return false end
     local idx = findIndex(id)
     if not idx then return false, 'zona não encontrada' end
+    local old = zones[idx]
+    if old.shape == 'poly' then
+        -- Polygons come from the config: the panel edits their rule, never their shape.
+        local rule = validateRule(type(data) == 'table' and data.rule)
+        if not rule then return false, 'regra inválida' end
+        old.name = type(data.name) == 'string' and data.name ~= '' and data.name or old.name
+        old.priority = math.floor(tonumber(data.priority) or old.priority or 0)
+        old.tempMod = tonumber(data.tempMod) or old.tempMod or 0
+        old.rule = rule
+        save(); sync()
+        return true
+    end
     local zone, err = sanitizeZone(data, id)
     if not zone then return false, err end
     zones[idx] = zone
@@ -185,8 +175,8 @@ lib.callback.register('cd_easytime:server:updateZone', function(source, id, data
     return true
 end)
 
-lib.callback.register('cd_easytime:server:removeZone', function(source, id)
-    if not PermissionsCheck(source) then return false end
+lib.callback.register('mri_Qweather:server:removeZone', function(source, id)
+    if not QWeather.isAdmin(source) then return false end
     local idx = findIndex(id)
     if not idx then return false end
     table.remove(zones, idx)
@@ -195,8 +185,8 @@ lib.callback.register('cd_easytime:server:removeZone', function(source, id)
 end)
 
 -- Nativas ────────────────────────────────────────────────────
-lib.callback.register('cd_easytime:server:setNativeZone', function(source, code, data)
-    if not PermissionsCheck(source) then return false end
+lib.callback.register('mri_Qweather:server:setNativeZone', function(source, code, data)
+    if not QWeather.isAdmin(source) then return false end
     if type(code) ~= 'string' or code == '' then return false, 'código inválido' end
     local rule = validateRule(data and data.rule)
     if not rule then return false, 'regra inválida' end
@@ -205,10 +195,11 @@ lib.callback.register('cd_easytime:server:setNativeZone', function(source, code,
     return true
 end)
 
-lib.callback.register('cd_easytime:server:removeNativeZone', function(source, code)
-    if not PermissionsCheck(source) then return false end
+lib.callback.register('mri_Qweather:server:removeNativeZone', function(source, code)
+    if not QWeather.isAdmin(source) then return false end
     if not natives[code] then return false end
     natives[code] = nil
     save(); sync()
     return true
 end)
+

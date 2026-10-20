@@ -1,8 +1,11 @@
 # mri_Qweather
 
-Clima e hora da cidade, sincronizados para todos os jogadores, com painel no tema da
-suíte MRI. Controla o ciclo do dia, a fila de previsão do tempo, apagão, clima por
-zonas do mapa e uma temperatura simulada que outros resources podem ler.
+Clima e hora da cidade, iguais para todos os jogadores, com painel no tema da suíte MRI.
+Tem previsão automática do tempo, clima real de uma cidade, hora real, apagão, alerta de
+tsunami antes do restart, clima por zonas do mapa e uma temperatura simulada que outros
+resources podem ler.
+
+A versão 3 foi escrita do zero pela MRI.
 
 ---
 
@@ -10,31 +13,41 @@ zonas do mapa e uma temperatura simulada que outros resources podem ler.
 
 | Recurso | Obrigatório | Observação |
 |---|---|---|
-| `ox_lib` | Sim | Callbacks e notificações |
-| `qbx_core` | Sim | Framework e permissões (grupos `god` e `admin`) |
-| `mri_Qadmin` | Não | Registra o painel como aba "Clima" do painel admin MRI |
+| `ox_lib` | Sim | Callbacks, notificações e textos |
+| `mri_Qadmin` | Não | O painel aparece como aba "Clima" do painel admin MRI |
 
 ## Instalação
 
 1. Coloque a pasta `mri_Qweather` em `resources/`.
 2. Tire do servidor qualquer outro script de clima e hora (`Renewed-Weathersync`,
-   `qb-weathersync`, `vSync`). Dois scripts mexendo no relógio fazem a hora pular.
-3. Adicione `ensure mri_Qweather` no `server.cfg`, depois do `ox_lib` e do `qbx_core`.
+   `qb-weathersync`, `vSync`, `cd_easytime`). Dois scripts mexendo no relógio fazem a hora pular.
+3. Adicione `ensure mri_Qweather` no `server.cfg`, depois do `ox_lib`.
 
 Pelo instalador da MRI, o script já desativa o `Renewed-Weathersync` sozinho.
 
+Quem atualiza da versão 2 não perde nada: o clima e a hora do `settings.txt` e as zonas do
+`data/zones.json` são lidos na primeira subida.
+
 ## Painel
 
-`/clima` abre o painel (ou a aba "Clima" do `mri_Qadmin`). Por ele dá pra:
+`/clima` abre o painel, que também é a aba "Clima" do `mri_Qadmin`. Quem tem a ACE
+`command.clima` (todo grupo com `command` liberado) pode abrir. Tudo vale na hora para a
+cidade inteira, sem botão de aplicar:
 
-- trocar o clima e a hora, com ou sem transição suave;
-- congelar a hora e ajustar a velocidade do dia e da noite separadamente;
-- ligar e desligar o clima dinâmico e ver a fila de previsão;
-- ligar o apagão;
-- criar e editar zonas de clima no jogo.
+- **Clima e hora**: clima de agora, hora com atalhos, parar o relógio, hora real, clima
+  automático pela previsão, clima real, blackout e alerta de tsunami.
+- **Previsão**: os próximos climas da previsão automática, para trocar, encurtar ou tirar.
+- **Zonas**: áreas desenhadas no mapa e regiões do GTA com clima e temperatura próprios.
+- **Ajustes**: duração do dia e da noite, fuso da hora real, troca de clima, frequência de
+  cada clima na previsão, chuva, neve em dezembro, cidade e chave do clima real, tsunami,
+  faróis no blackout e unidade da temperatura.
 
-Quem pode abrir é definido em `Config.Permissions` (`configs/config.lua`): grupos do
-framework, identifiers, ACE ou cargos do Discord.
+Os Ajustes ficam salvos no servidor (KVP), então uma atualização não apaga nada.
+
+## Clima real
+
+Usa a API gratuita do [OpenWeatherMap](https://openweathermap.org/api). Coloque a cidade e
+a chave na aba Ajustes; a chave fica só no servidor e nunca vai para os jogadores.
 
 ## Comandos
 
@@ -42,66 +55,59 @@ Para staff, com a mesma permissão do painel:
 
 | Comando | O que faz |
 |---|---|
-| `/time <hora> [minuto]` | Define a hora sem transição |
-| `/noon`, `/morning`, `/evening`, `/night` | 12:00, 09:00, 18:00 e 23:00 |
+| `/clima` | Abre o painel |
+| `/time <hora> [minuto]` | Define a hora |
+| `/morning`, `/noon`, `/evening`, `/night` | 09:00, 12:00, 18:00 e 23:00 |
 | `/weather <tipo>` | Define o clima (`CLEAR`, `RAIN`, `THUNDER`, `SNOW`...) |
 | `/timescale <ms>` | Milissegundos reais por minuto de jogo (mínimo 1000) |
-| `/freezetime <1\|0>` | Congela ou solta a hora |
-
-## Hora
-
-`Config.Time.METHOD` escolhe a fonte:
-
-- `game`: relógio próprio do servidor. `time_cycle_speed` e `night_cycle_speed` são os
-  segundos reais por minuto de jogo, de dia e de noite.
-- `real`: hora de uma cidade real (precisa de `Config.APIKey` do OpenWeatherMap).
-
-## Clima por zonas
-
-O clima do GTA é um só na tela. Ao entrar numa zona, o jogador passa a ver o clima da
-zona no lugar do clima global:
-
-- **Zonas nativas** do GTA (ex.: `MTCHIL`, Mount Chiliad), em `Config.Zones.natives`.
-- **Zonas próprias** em círculo, criadas e editadas no painel. Ficam salvas em
-  `data/zones.json`.
-
-Cada zona pode forçar um clima (`fixed`) ou só aceitar alguns e trocar o resto
-(`bias`), e pode somar graus à temperatura (`tempMod`).
-
-## Temperatura
-
-O GTA não tem temperatura. O script calcula uma pelo clima, pela hora e pelo mês, e
-cada jogador ainda recebe o ajuste da altitude, da água e da zona onde está. Ele só
-expõe o valor: quem quiser usar (HUD, status, roupas) lê pelos exports.
+| `/freezetime <1\|0>` | Para ou solta o relógio |
 
 ## Exports
 
 Client:
 
 ```lua
-exports.mri_Qweather:GetWeather()        -- clima atual
-exports.mri_Qweather:GetAllData()        -- clima, hora e flags
-exports.mri_Qweather:GetPauseSyncState() -- sync pausado neste client?
-exports.mri_Qweather:GetTemperature()    -- temperatura do jogador
-exports.mri_Qweather:GetTemperatureData()
-exports.mri_Qweather:GetZone()           -- zona de clima em que o jogador está
+exports.mri_Qweather:GetWeather()         -- { weather, hours, mins, blackout }
+exports.mri_Qweather:GetPauseSyncState()  -- sync pausado neste jogador?
+exports.mri_Qweather:GetTemperature()     -- temperatura do jogador
+exports.mri_Qweather:GetTemperatureData() -- { value, celsius, unit }
+exports.mri_Qweather:GetZone()            -- zona de clima em que o jogador está
+```
+
+Server:
+
+```lua
+exports.mri_Qweather:SetWeather('RAIN')
+exports.mri_Qweather:SetTime(22, 30)
+exports.mri_Qweather:SetBlackout(true)
+exports.mri_Qweather:SetTimeFreeze(true)
+exports.mri_Qweather:SetDynamic(false)
+exports.mri_Qweather:GetWeather()
+exports.mri_Qweather:GetTemperature()
+exports.mri_Qweather:GetForecastQueue()
 ```
 
 ## Compatibilidade
 
-Resources feitos para o `qb-weathersync` ou o `Renewed-Weathersync` continuam
-funcionando: os exports `qb-weathersync`, os eventos `qb-weathersync:*` e `vSync:toggle`
-e o `GlobalState` (`weather`, `currentTime`, `timeScale`, `freezeTime`, `blackOut`) são
-atendidos por este script.
+Resources feitos para o `qb-weathersync`, o `cd_easytime`, o `vSync` ou o
+`Renewed-Weathersync` continuam funcionando sem mudança:
 
-## Arquivos que o servidor grava
+- exports `qb-weathersync` (`setBlackout`, `setWeather`, `setTime`...) e `cd_easytime:GetWeather`;
+- eventos `qb-weathersync:client:EnableSync` / `DisableSync`, `vSync:toggle`,
+  `cd_easytime:PauseSync` e `qb-weathersync:server:setWeather` / `setTime`;
+- `GlobalState` no formato do Renewed: `weather`, `currentTime`, `timeScale`, `freezeTime`, `blackOut`.
 
-- `settings.txt`: último clima, hora e opções do painel.
-- `data/zones.json`: zonas criadas no jogo.
+## Créditos
 
-Ao atualizar, guarde esses dois (o instalador da MRI já guarda).
+- Rodrigo G. Gusmão: o desenho dos efeitos de neve com um dono só e sem `ForceSnowPass`
+  (asfalto preto em Los Santos), proposto no [PR #1](https://github.com/mri-Qbox-Brasil/mri_Qweather/pull/1).
+- Sirene do tsunami: "Siren Loudspeakers" de Summerson, no
+  [freesound.org](https://freesound.org/people/Summerson/sounds/591197/), licença
+  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+- Caixas das regiões do mapa: tiradas do `popzone.ipl` do GTA V, da Rockstar Games.
 
-## Créditos e licença
+## Licença
 
-Baseado no Easytime da Codesign. Distribuído sob a licença
-[CC BY-NC-SA 4.0](LICENSE.md): uso livre, sem fins comerciais, mantendo a mesma licença.
+O código deste recurso é MIT com Commons Clause: pode usar, modificar e redistribuir à vontade, mas não pode vender, nem a versão original nem uma modificada. Texto completo em [LICENSE](LICENSE).
+
+O som da sirene e os dados do mapa do GTA V são dos seus criadores e não entram nessa licença. Se você é autor de algum deles e quer que seja removido, é só abrir uma [issue](https://github.com/mri-Qbox-Brasil/mri_Qweather/issues) que a gente tira.
