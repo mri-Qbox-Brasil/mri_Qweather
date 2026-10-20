@@ -5,7 +5,7 @@ lua54 'yes'
 name 'mri_Qweather'
 description 'Clima e hora sincronizados, com previsão, zonas de clima, temperatura e painel próprio'
 author 'MRI Qbox'
-version '3.0.0'
+version '3.0.1'
 license 'MIT with Commons Clause'
 repository 'https://github.com/mri-Qbox-Brasil/mri_Qweather'
 

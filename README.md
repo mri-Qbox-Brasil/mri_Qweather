@@ -28,6 +28,9 @@ Pelo instalador da MRI, o script já desativa o `Renewed-Weathersync` sozinho.
 Quem atualiza da versão 2 não perde nada: o clima e a hora do `settings.txt` e as zonas do
 `data/zones.json` são lidos na primeira subida.
 
+Os Ajustes do painel ficam em `data/settings.json` e as zonas em `data/zones.json`. Os dois
+são do dono da cidade: o instalador da MRI guarda eles ao atualizar.
+
 ## Painel
 
 `/clima` abre o painel, que também é a aba "Clima" do `mri_Qadmin`. Quem tem a ACE

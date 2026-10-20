@@ -1,6 +1,6 @@
 QSettings = {}
 
-local KVP = 'settings'
+local FILE = 'data/settings.json'
 local DEFAULTS = Config.settings
 
 -- Choices the panel offers; anything else sent to the server falls back to the saved value.
@@ -100,8 +100,15 @@ local function publish()
     GlobalState[QWeather.keys.settings] = public
 end
 
+local function write()
+    SaveResourceFile(QWeather.resource, FILE, json.encode(settings, { indent = true }), -1)
+end
+
 local function load()
-    local ok, stored = pcall(json.decode, GetResourceKvpString(KVP) or '{}')
+    -- 3.0.0 kept the settings in KVP; read it once when the file is not there yet.
+    local raw = LoadResourceFile(QWeather.resource, FILE) or GetResourceKvpString('settings') or '{}'
+    local ok, stored = pcall(json.decode, raw)
+    if not ok then print(('^3[%s] %s corrompido, usando os padrões do config.^0'):format(QWeather.resource, FILE)) end
     stored = ok and type(stored) == 'table' and stored or {}
     for section, clean in pairs(CLEAN) do
         local given = type(stored[section]) == 'table' and stored[section] or {}
@@ -110,6 +117,7 @@ local function load()
 end
 
 load()
+write()
 publish()
 
 function QSettings.get()
@@ -124,7 +132,7 @@ function QSettings.save(section, values)
     local clean = CLEAN[section]
     if not clean or type(values) ~= 'table' then return false end
     settings[section] = clean(values, settings[section])
-    SetResourceKvp(KVP, json.encode(settings))
+    write()
     publish()
     TriggerEvent('mri_Qweather:server:settingsChanged', section)
     return true
