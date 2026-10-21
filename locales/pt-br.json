@@ -65,7 +65,7 @@
             "blackout": "Blackout",
             "blackout_hint": "Apaga as luzes da cidade.",
             "tsunami": "Alerta de tsunami",
-            "tsunami_hint": "Tempestade, sirene e apagão, como antes de um restart."
+            "tsunami_hint": "Tempestade, sirene, apagão e o mar subindo, como antes de um restart."
         },
         "environment": {
             "temperature": "Temperatura",
@@ -104,6 +104,13 @@
             "tsunami": "Alerta de tsunami no restart",
             "tsunami_hint": "Antes de um restart agendado no txAdmin.",
             "tsunami_minutes": "Quanto antes do restart",
+            "tsunami_flood": "O mar sobe",
+            "tsunami_flood_hint": "Durante o alerta o mar invade a cidade.",
+            "tsunami_rise": "Velocidade da água",
+            "tsunami_rise_hint": "Quanto tempo o mar leva pra chegar na altura, a partir do início do alerta.",
+            "rise_whole": "O alerta todo",
+            "flood_none": "Não sobe",
+            "meters": "{n} m",
             "blackout_vehicles": "Blackout apaga os faróis",
             "blackout_vehicles_hint": "Os carros também ficam sem luz.",
             "unit": "Temperatura em",

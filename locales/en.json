@@ -65,7 +65,7 @@
             "blackout": "Blackout",
             "blackout_hint": "Turns the city lights off.",
             "tsunami": "Tsunami warning",
-            "tsunami_hint": "Storm, siren and blackout, as before a restart."
+            "tsunami_hint": "Storm, siren, blackout and rising sea, as before a restart."
         },
         "environment": {
             "temperature": "Temperature",
@@ -104,6 +104,13 @@
             "tsunami": "Tsunami warning on restart",
             "tsunami_hint": "Before a restart scheduled in txAdmin.",
             "tsunami_minutes": "How long before the restart",
+            "tsunami_flood": "Sea rises",
+            "tsunami_flood_hint": "During the warning the sea floods the city.",
+            "tsunami_rise": "Water speed",
+            "tsunami_rise_hint": "How long the sea takes to reach that height, from the start of the warning.",
+            "rise_whole": "The whole warning",
+            "flood_none": "Does not rise",
+            "meters": "{n} m",
             "blackout_vehicles": "Blackout turns headlights off",
             "blackout_vehicles_hint": "Cars lose their lights too.",
             "unit": "Temperature in",

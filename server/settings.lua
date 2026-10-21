@@ -16,6 +16,8 @@ local CHOICES = {
     frequency = { 0, 1, 2, 3 },
     checkMinutes = { 10, 15, 30, 60 },
     tsunamiMinutes = { 1, 2, 3, 5 },
+    tsunamiFlood = { 0, 3, 8, 15, 30, 60, 150, 300, 600, 750 },
+    tsunamiRise = { 0, 15, 30, 60 },
     zoneTransition = { 5, 15, 25, 45 },
     unit = { 'C', 'F' },
 }
@@ -74,6 +76,8 @@ local CLEAN = {
         return {
             enabled = bool(v.enabled, old.enabled),
             minutes = pick(CHOICES.tsunamiMinutes, tonumber(v.minutes), old.minutes),
+            flood = pick(CHOICES.tsunamiFlood, tonumber(v.flood), old.flood),
+            rise = pick(CHOICES.tsunamiRise, tonumber(v.rise), old.rise),
         }
     end,
     zones = function(v, old)

@@ -108,6 +108,7 @@ Resources feitos para o `qb-weathersync`, o `cd_easytime`, o `vSync` ou o
   [freesound.org](https://freesound.org/people/Summerson/sounds/591197/), licença
   [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 - Caixas das regiões do mapa: tiradas do `popzone.ipl` do GTA V, da Rockstar Games.
+- Água da enchente do tsunami (`water/flood.xml`): o `water.xml` do GTA V, da Rockstar Games, com o mar trocado por uma grade que cobre o mapa.
 
 ## Licença
 

@@ -33,6 +33,8 @@ Config.settings = {
     tsunami = {
         enabled = true,
         minutes = 2,       -- minutes before a scheduled restart
+        flood = 8,         -- metres the sea rises (0 = no flood)
+        rise = 0,          -- seconds the sea takes to reach that height (0 = the whole warning)
     },
     zones = {
         enabled = true,
