@@ -15,7 +15,7 @@ function QTsunami.start(seconds, restart)
     if seconds < 10 then return false end
     local endsAt = os.time() + seconds
     local cfg = QSettings.get().tsunami
-    GlobalState[key] = { seconds = seconds, endsAt = endsAt, restart = restart == true, flood = cfg.flood, rise = cfg.rise }
+    GlobalState[key] = { seconds = seconds, endsAt = endsAt, restart = restart == true, flood = cfg.flood, rise = cfg.rise, waves = cfg.waves }
     SetTimeout((seconds + (restart and 120 or 0)) * 1000, function()
         local current = GlobalState[key]
         if type(current) == 'table' and current.endsAt == endsAt then QTsunami.stop() end

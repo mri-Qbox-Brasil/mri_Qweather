@@ -21,28 +21,38 @@ local function setLevel(quads, level)
     for i = 1, #quads do SetWaterQuadLevel(quads[i], level + 0.0) end
 end
 
+-- Deep ocean scaler and the shore wave height of water/flood.xml for each Waves choice.
+local WAVES = {
+    normal = { ocean = 1.0, shore = 1.5 },
+    strong = { ocean = 3.0, shore = 4.0 },
+    huge = { ocean = 8.0, shore = 10.0 },
+}
+
+local function roughen(waves)
+    for i = 0, GetWaveQuadCount() - 1 do SetWaveQuadAmplitude(i, waves.shore) end
+    -- Calming quads keep canals and the harbour flat; the storm reaches them too.
+    for i = 0, GetCalmingQuadCount() - 1 do SetCalmingQuadDampening(i, 1.0) end
+end
+
 -- The sea rises from the start of the warning and takes `rise` seconds (0 = all of it) to get to full height.
 local function flood(id, data, startedAt, total)
     local height = tonumber(data.flood) or 0
-    if height <= 0 then return end
+    local waves = WAVES[data.waves] or WAVES.strong
+    if height <= 0 and waves == WAVES.normal then return end
     -- Cayo Perico runs its own water there; LoadWaterFromPath would wipe it.
     if #(GetEntityCoords(cache.ped).xy - CAYO) < 2000.0 then return end
     local rise = tonumber(data.rise) or 0
     local duration = rise > 0 and math.min(rise, total) or total
+    LoadWaterFromPath(QWeather.resource, 'water/flood.xml')
+    local quads = seaQuads()
+    running.quads = quads
+    if waves ~= WAVES.normal then roughen(waves) end
+    if height <= 0 then return end
     CreateThread(function()
-        local quads
         while running == id do
-            local progress = (GetGameTimer() - startedAt) / 1000 / duration
-            if progress > 0 then
-                if not quads then
-                    LoadWaterFromPath(QWeather.resource, 'water/flood.xml')
-                    quads = seaQuads()
-                    running.quads = quads
-                end
-                local level = height * math.min(progress, 1.0)
-                running.level = level
-                setLevel(quads, level)
-            end
+            local level = height * math.min((GetGameTimer() - startedAt) / 1000 / duration, 1.0)
+            running.level = level
+            setLevel(quads, level)
             Wait(100)
         end
     end)
@@ -58,7 +68,7 @@ local function start(data)
     local storm = GetGameBuildNumber() >= 3258 and 'RAIN_HALLOWEEN' or 'HALLOWEEN'
     -- The storm takes the first quarter to build up; joining later shows it already built.
     QClientWeather.force(storm, math.max(0, total / 4 - elapsed))
-    SetDeepOceanScaler(3.0)
+    SetDeepOceanScaler((WAVES[data.waves] or WAVES.strong).ocean)
     if elapsed < 5 then
         lib.notify({ title = locale('tsunami_title'), description = locale(data.restart and 'tsunami_restart' or 'tsunami_alert', math.max(1, math.ceil(left / 60))), type = 'warning', duration = 15000 })
     end

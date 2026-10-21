@@ -18,6 +18,7 @@ local CHOICES = {
     tsunamiMinutes = { 1, 2, 3, 5 },
     tsunamiFlood = { 0, 3, 8, 15, 30, 60, 150, 300, 600, 750 },
     tsunamiRise = { 0, 15, 30, 60 },
+    tsunamiWaves = { 'normal', 'strong', 'huge' },
     zoneTransition = { 5, 15, 25, 45 },
     unit = { 'C', 'F' },
 }
@@ -78,6 +79,7 @@ local CLEAN = {
             minutes = pick(CHOICES.tsunamiMinutes, tonumber(v.minutes), old.minutes),
             flood = pick(CHOICES.tsunamiFlood, tonumber(v.flood), old.flood),
             rise = pick(CHOICES.tsunamiRise, tonumber(v.rise), old.rise),
+            waves = pick(CHOICES.tsunamiWaves, v.waves, old.waves),
         }
     end,
     zones = function(v, old)
