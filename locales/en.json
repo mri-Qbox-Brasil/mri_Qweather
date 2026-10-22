@@ -1,4 +1,6 @@
 {
+    "menu_title": "Weather",
+    "menu_description": "Weather, time and city zones",
     "title": "Weather",
     "tsunami_title": "Tsunami warning",
     "tsunami_restart": "A tsunami will hit the city in %s min. Find shelter and wrap up what you are doing.",

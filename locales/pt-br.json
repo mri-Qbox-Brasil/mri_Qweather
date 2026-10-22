@@ -1,4 +1,6 @@
 {
+    "menu_title": "Clima",
+    "menu_description": "Clima, horário e zonas da cidade",
     "title": "Clima",
     "tsunami_title": "Alerta de tsunami",
     "tsunami_restart": "Um tsunami vai atingir a cidade em %s min. Procure abrigo e encerre o que estiver fazendo.",

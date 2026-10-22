@@ -1,3 +1,5 @@
 {
+    "menu_title": "Clima",
+    "menu_description": "Clima, hora y zonas de la ciudad",
     "invalid_permissions": "No tienes permisos para usar este comando"
 }

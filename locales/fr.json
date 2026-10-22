@@ -1,3 +1,5 @@
 {
+    "menu_title": "Météo",
+    "menu_description": "Météo, heure et zones de la ville",
     "invalid_permissions": "Vous ne disposez pas des autorisations nécessaires pour utiliser cette commande"
 }

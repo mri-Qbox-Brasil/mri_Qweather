@@ -128,3 +128,42 @@ RegisterNUICallback('teleport', function(coords, cb)
     SetPedCoordsKeepVehicle(ped, x, y, z)
     FreezeEntityPosition(ped, false)
 end)
+
+-- With the Qadmin plugin up, mri_Qbox hides its own weather and clock items; this one opens the panel
+local inF10 = false
+
+local function syncF10Item()
+    if GetResourceState('mri_Qbox') ~= 'started' then inF10 = false return end
+    local want = GetResourceState('mri_Qadmin') == 'started'
+    if want == inF10 then return end
+    pcall(function()
+        if want then
+            exports.mri_Qbox:AddItemToMenu('f10', {
+                title = locale('menu_title'),
+                description = locale('menu_description'),
+                icon = 'cloud',
+                iconAnimation = 'fade',
+                arrow = true,
+                onSelectFunction = function() ExecuteCommand(Config.command) end,
+            })
+        else
+            exports.mri_Qbox:RemoveItemFromMenu('f10', locale('menu_title'))
+        end
+    end)
+    inF10 = want
+end
+
+CreateThread(syncF10Item)
+
+AddEventHandler('onClientResourceStart', function(resource)
+    -- a mri_Qbox restart forgets the item, so it goes in again
+    if resource == 'mri_Qbox' then inF10 = false end
+    if resource == 'mri_Qbox' or resource == 'mri_Qadmin' then syncF10Item() end
+end)
+
+AddEventHandler('onClientResourceStop', function(resource)
+    if resource == 'mri_Qadmin' then SetTimeout(0, syncF10Item) end
+    if resource == GetCurrentResourceName() and inF10 then
+        pcall(function() exports.mri_Qbox:RemoveItemFromMenu('f10', locale('menu_title')) end)
+    end
+end)
